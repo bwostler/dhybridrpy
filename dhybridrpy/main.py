@@ -29,6 +29,47 @@ class Phase:
         return f"Loading data from {self.filepath} for species '{self.species}'"
 
 
+class Timestep:
+    def __init__(self, timestep):
+        self.timestep = timestep
+        self.fields = {"Total": {}, "External": {}}
+        self.phases = defaultdict(lambda: {})
+
+    def add_field(self, field: Field) -> None:
+        if field.source not in self.fields:
+            raise ValueError(f"Unknown source: {field.source}")
+        self.fields[field.source][field.name] = field
+
+    def add_phase(self, phase: Phase) -> None:
+        self.phases[phase.species][phase.name] = phase
+
+    def __getattr__(self, name: str) -> Callable:
+
+        def get_field(source: str) -> Field:
+            source = source.capitalize()
+            if source not in self.fields or name not in self.fields[source]:
+                raise AttributeError(f"Field '{name}' with source '{source}' not found at timestep {self.timestep}")
+            return self.fields[source][name]
+
+        def get_phase(species: int) -> Phase:
+            if name not in self.phases.get(species, {}):
+                raise AttributeError(f"Phase '{name}' for species {species} not found at timestep {self.timestep}")
+            return self.phases[species][name]
+
+        def get_attr(arg: Union[str, int] = None) -> Union[Field, Phase]:
+
+            if any(name in phases for phases in self.phases.values()):  # If `name` corresponds to a phase
+                return get_phase(species=arg if arg != 1 and arg != None else 1)
+            elif any(name in fields for fields in self.fields.values()):  # If `name` is a field
+                return get_field(source=arg if arg != "Total" and arg != None else "Total")
+
+            # If `name` is neither a field nor a phase, raise an error
+            raise AttributeError(f"Attribute '{name}' does not exist at timestep {self.timestep}")
+
+        # Return callable function that allows function argument like "Total" or "External"
+        return get_attr
+
+
 class DHP:
     def __init__(self, outputpath: str):
         self.outputpath = outputpath
@@ -41,8 +82,7 @@ class DHP:
 
         self.traverse_directory()
 
-
-    def traverse_directory(self):
+    def traverse_directory(self) -> None:
         file_info = []
         timestep_pattern = re.compile(r"_(\d+)\.h5$")
 
@@ -93,66 +133,14 @@ class DHP:
                         phase = Phase(os.path.join(dirpath, filename), name, species)
                         self.timesteps_dict[timestep].add_phase(phase)
                         
-
-
-    def timestep(self, ts: int) -> Union[Field, Phase]:
+    def timestep(self, ts: int) -> Timestep:
         if ts in self.timesteps_dict:
             return self.timesteps_dict[ts]
         raise ValueError(f"Timestep {ts} not found")
 
-
     @property
     def timesteps(self) -> np.array:
         return np.sort(list(self.timesteps_dict))
-
-
-class Timestep:
-    def __init__(self, timestep):
-        self.timestep = timestep
-        self.fields = {"Total": {}, "External": {}}
-        self.phases = defaultdict(lambda: {})
-
-    def add_field(self, field: Field):
-        if field.source not in self.fields:
-            raise ValueError(f"Unknown source: {field.source}")
-        self.fields[field.source][field.name] = field
-
-    def add_phase(self, phase: Phase):
-        self.phases[phase.species][phase.name] = phase
-
-    def __getattr__(self, name: str) -> Callable:
-
-        def resolve_field(source: str) -> Field:
-
-            # Capitalize source incase user uses all lowercase
-            source = source.capitalize()
-
-            # Check if the source exists and contains the name
-            field_items = self.fields.get(source, {})
-            if name in field_items:
-                return field_items[name]
-
-            # Raise an error if not found
-            raise AttributeError(f"Field '{name}' for type '{source}' does not exist at timestep {self.timestep}")
-
-        def resolve_phase(species: int) -> Phase:
-            try:
-                return self.phases[species][name]
-            except KeyError:
-                raise AttributeError(f"Phase '{name}' for species {species} does not exist at timestep {self.timestep}")
-
-        def resolve_attr(arg: Union[str, int] = None) -> Union[Field, Phase]:
-
-            if any(name in phases for phases in self.phases.values()):  # If `name` corresponds to a phase
-                return resolve_phase(species=arg if arg != 1 and arg != None else 1)
-            elif any(name in fields for fields in self.fields.values()):  # If `name` is a field
-                return resolve_field(source=arg if arg != "Total" and arg != None else "Total")
-
-            # If `name` is neither a field nor a phase, raise an error
-            raise AttributeError(f"Attribute '{name}' does not exist at timestep {self.timestep}")
-
-        # Return callable function that allows function argument like "Total" or "External"
-        return resolve_attr
 
 
 def main():
