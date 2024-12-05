@@ -144,9 +144,9 @@ class Timestep:
         def resolve_attr(arg: Union[str, int] = None) -> Union[Field, Phase]:
 
             if any(name in phases for phases in self.phases.values()):  # If `name` corresponds to a phase
-                return resolve_phase(species=arg if arg != 1 else 1)
+                return resolve_phase(species=arg if arg != 1 and arg != None else 1)
             elif any(name in fields for fields in self.fields.values()):  # If `name` is a field
-                return resolve_field(source=arg if arg != "Total" else "Total")
+                return resolve_field(source=arg if arg != "Total" and arg != None else "Total")
 
             # If `name` is neither a field nor a phase, raise an error
             raise AttributeError(f"Attribute '{name}' does not exist at timestep {self.timestep}")
@@ -157,10 +157,8 @@ class Timestep:
 
 def main():
     dhp = DHP("/project/astroplasmas/bricker/dhybridrpy/dhybridrpy/Output")
-    # print(dhp.timestep(32).Ex().data)
-    # print(dhp.timesteps)
-    # print(dhp.timestep(0).Ey("External").filepath)
-    print(dhp.timestep(32).Ez("Total").data)
+    print(dhp.timestep(0).Ez("External").data)
+    print(dhp.timestep(32).p1x1(1).data)
 
 if __name__ == "__main__":
     main()
