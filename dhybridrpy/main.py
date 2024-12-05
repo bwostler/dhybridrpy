@@ -5,9 +5,9 @@ import re
 class DHP:
     def __init__(self, output_path: str):
         self.output_path = output_path
-        self._timesteps = {}
+        self.timesteps_dict = {}
 
-        self.field_name_mapping = {
+        self.fieldname_mapping = {
             "Magnetic": "B",
             "Electric": "E"
         }
@@ -30,61 +30,62 @@ class DHP:
                     
                     # Handle files corresponding to fields
                     if output_type == "Fields":
-                        field_category = folder_components[1] # e.g., 'Magnetic' or 'Electric'
-                        field_type = folder_components[-2] # e.g., 'Total' or 'External'
+                        category = folder_components[1] # e.g., 'Magnetic' or 'Electric'
+                        source = folder_components[-2] # e.g., 'Total' or 'External'
                         component = folder_components[-1] # e.g., 'x', 'y', 'z'
 
                         try:
-                            prefix = self.field_name_mapping[field_category]
+                            prefix = self.fieldname_mapping[category]
                         except KeyError:
-                            print(f"Warning: Key '{field_category}' has no known mapping in field name mapping dictionary. Continuing without renaming")
+                            print(f"Warning: Key '{category}' has no known mapping in field name mapping dictionary. Continuing without renaming")
                             continue
 
-                        field_name = f"{prefix}{component}"
+                        name = f"{prefix}{component}"
 
                         # Ensure the timestep exists
-                        if timestep not in self._timesteps:
-                            self._timesteps[timestep] = Timestep(timestep)
+                        if timestep not in self.timesteps_dict:
+                            self.timesteps_dict[timestep] = Timestep(timestep)
                         
                         # Add the field to the timestep
-                        field = Field(os.path.join(dirpath, filename), field_type)
-                        self._timesteps[timestep].add_field(field_name, field)
+                        field = Field(os.path.join(dirpath, filename), name, source)
+                        self.timesteps_dict[timestep].add_field(field)
+
                     elif output_type == "Phase":
                         pass
 
 
     def timestep(self, ts):
-        if ts in self._timesteps:
-            return self._timesteps[ts]
+        if ts in self.timesteps_dict:
+            return self.timesteps_dict[ts]
         raise ValueError(f"Timestep {ts} not found")
 
 
     @property
     def timesteps(self):
-        return sorted(list(self._timesteps))
+        return sorted(list(self.timesteps_dict))
 
-        
 
 class Field:
-    def __init__(self, filename, field_type):
+    def __init__(self, filename, name, source):
         self.filename = filename
-        self.field_type = field_type
+        self.name = name # e.g., "Ex"
+        self.source = source # e.g., "External"
 
     @property
     def data(self):
         # Placeholder for data loading logic
-        print(f"Loading data from {self.filename} for type '{self.field_type}'")
+        print(f"Loading data from {self.filename} for type '{self.source}'")
 
 
 class Phase:
-    def __init__(self, filename, phase_type):
+    def __init__(self, filename, phasetype):
         self.filename = filename
-        self.phase_type = phase_type
+        self.phasetype = phasetype
 
     @property
     def data(self):
         # Placeholder for data loading logic
-        print(f"Loading data from {self.filename} for type '{self.phase_type}'")
+        print(f"Loading data from {self.filename} for type '{self.phasetype}'")
 
 
 class Timestep:
@@ -93,40 +94,41 @@ class Timestep:
         self.fields = {"Total": {}, "External": {}}
         self.phase = {}
 
-    def add_field(self, name, field):
-        if field.field_type not in self.fields:
-            raise ValueError(f"Unknown field_type: {field.field_type}")
-        self.fields[field.field_type][name] = field
+    def add_field(self, field):
+        if field.source not in self.fields:
+            raise ValueError(f"Unknown source: {field.source}")
+        self.fields[field.source][field.name] = field
 
     def add_phase(self, name, phase):
         self.phase[name] = phase
 
     def __getattr__(self, name):
 
-        def resolve_field(field_type="Total"):
-            # Check if the name exists in phase
+        def resolve_attr(source="Total"):
+            # Check if the name exists in phase. If not, check if it's in fields
             if name in self.phase:
                 return self.phase[name]
 
-            # Capitalize field_type incase user uses all lowercase
-            field_type = field_type.capitalize()
+            # Capitalize source incase user uses all lowercase
+            source = source.capitalize()
 
-            # Check if the field_type exists and contains the name
-            field_group = self.fields.get(field_type, {})
-            if name in field_group:
-                return field_group[name]
+            # Check if the source exists and contains the name
+            field_items = self.fields.get(source, {})
+            if name in field_items:
+                return field_items[name]
 
             # Raise an error if not found
-            raise AttributeError(f"Field '{name}' with type '{field_type}' does not exist for timestep {self.timestep}")
+            raise AttributeError(f"Field / Phase '{name}' with type '{source}' does not exist for timestep {self.timestep}")
 
         # Return callable function that allows function argument like "Total" or "External"
-        return resolve_field
+        return resolve_attr
 
 
 def main():
     dhp = DHP("/project/astroplasmas/bricker/dhybridrpy/dhybridrpy/Output")
-    print(dhp.timestep(1).Ex().data)
+    print(dhp.timestep(32).Ex().data)
     print(dhp.timesteps)
+    print(dhp.timestep(0).Ey("External").filename)
 
 if __name__ == "__main__":
     main()
