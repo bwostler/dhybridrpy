@@ -26,7 +26,7 @@ class Phase:
     @property
     def data(self):
         # Placeholder for data loading logic
-        print(f"Loading data from {self.filepath} for species '{self.species}'")
+        return f"Loading data from {self.filepath} for species '{self.species}'"
 
 
 class DHP:
@@ -159,6 +159,8 @@ def main():
     dhp = DHP("/project/astroplasmas/bricker/dhybridrpy/dhybridrpy/Output")
     print(dhp.timestep(0).Ez("External").data)
     print(dhp.timestep(32).p1x1(1).data)
+    print(dhp.timestep(64).x3x2x1().data)
+    print(dhp.timestep(32).EIntensity().data)
 
 if __name__ == "__main__":
     main()
