@@ -1,9 +1,13 @@
 import numpy as np 
 import os
 import re
+import logging
 
 from collections import defaultdict
 from typing import Union, Callable
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class Field:
     def __init__(self, filepath: str, name: str, source: str):
@@ -74,13 +78,44 @@ class DHP:
     def __init__(self, outputpath: str):
         self.outputpath = outputpath
         self.timesteps_dict = {}
-
         self.fieldname_mapping = {
             "Magnetic": "B",
             "Electric": "E"
         }
-
         self.traverse_directory()
+
+    def process_file(self, dirpath: str, filename: str, timestep: int) -> None:
+        folder_components = os.path.relpath(dirpath, self.outputpath).split(os.sep)
+        output_type = folder_components[0]
+
+        if output_type == "Fields":
+            self.process_field(dirpath, filename, timestep, folder_components)
+        elif output_type == "Phase":
+            self.process_phase(dirpath, filename, timestep, folder_components)
+
+    def process_field(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
+        category = folder_components[1]
+        source = folder_components[-2]
+        component = folder_components[-1]
+
+        prefix = self.fieldname_mapping.get(category)
+        if not prefix:
+            logger.warning(f"Unknown category '{category}'. Skipping {filename}")
+            return
+
+        name = f"{prefix}{component}"
+        if timestep not in self.timesteps_dict:
+            self.timesteps_dict[timestep] = Timestep(timestep)
+        field = Field(os.path.join(dirpath, filename), name, source)
+        self.timesteps_dict[timestep].add_field(field)
+
+    def process_phase(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
+        name = folder_components[-2]
+        species = int(re.search(r'\d+', folder_components[-1]).group())
+        if timestep not in self.timesteps_dict:
+            self.timesteps_dict[timestep] = Timestep(timestep)
+        phase = Phase(os.path.join(dirpath, filename), name, species)
+        self.timesteps_dict[timestep].add_phase(phase)
 
     def traverse_directory(self) -> None:
         file_info = []
@@ -92,46 +127,7 @@ class DHP:
 
                 if match:
                     timestep = int(match.group(1))
-                    folder_components = os.path.relpath(dirpath, self.outputpath).split(os.sep)
-                    output_type = folder_components[0]
-                    
-                    # Handle files corresponding to fields
-                    if output_type == "Fields":
-                        category = folder_components[1] # e.g., 'Magnetic' or 'Electric'
-                        source = folder_components[-2] # e.g., 'Total' or 'External'
-                        component = folder_components[-1] # e.g., 'x', 'y', 'z'
-
-                        try:
-                            prefix = self.fieldname_mapping[category]
-                        except KeyError:
-                            print(f"Warning: Key '{category}' has no known mapping in field name mapping dictionary. Continuing without renaming")
-                            continue
-
-                        name = f"{prefix}{component}"
-
-                        # Ensure the timestep exists
-                        if timestep not in self.timesteps_dict:
-                            self.timesteps_dict[timestep] = Timestep(timestep)
-                        
-                        # Add the field to the timestep
-                        field = Field(os.path.join(dirpath, filename), name, source)
-                        self.timesteps_dict[timestep].add_field(field)
-
-                    elif output_type == "Phase":
-                        
-                        name = folder_components[-2]
-
-                        # Extract integer characterizing species type in a general way
-                        species_match = re.search(r'\d+', folder_components[-1])
-                        if species_match:
-                            species = int(species_match.group())
-                        
-                        # Ensure the timestep exists
-                        if timestep not in self.timesteps_dict:
-                            self.timesteps_dict[timestep] = Timestep(timestep)
-
-                        phase = Phase(os.path.join(dirpath, filename), name, species)
-                        self.timesteps_dict[timestep].add_phase(phase)
+                    self.process_file(dirpath, filename, timestep)
                         
     def timestep(self, ts: int) -> Timestep:
         if ts in self.timesteps_dict:
