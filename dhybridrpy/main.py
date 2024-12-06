@@ -10,6 +10,12 @@ from typing import Union, Callable
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+"""
+Todo:
+1. Use f90nml to read input file and make dictionary available via dhp.inputs
+2. Add processing of raw files
+3. Implement Dask for lazy loading of large datasets
+"""
 
 class Data:
     def __init__(self, filepath: str, name: str):
