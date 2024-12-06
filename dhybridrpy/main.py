@@ -9,20 +9,21 @@ from typing import Union, Callable
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 class Field:
-    def __init__(self, filepath: str, name: str, source: str):
+    def __init__(self, filepath: str, name: str, origin: str):
         self.filepath = filepath # Absolute path to field file
         self.name = name # e.g., "Ex"
-        self.source = source # e.g., "External"
+        self.origin = origin # e.g., "External"
 
     @property
     def data(self):
         # Placeholder for data loading logic
-        return f"Loading data from {self.filepath} for type '{self.source}'"
+        return f"Loading data from {self.filepath} for origin '{self.origin}'"
 
 
 class Phase:
-    def __init__(self, filepath: str, name: str, species: int):
+    def __init__(self, filepath: str, name: str, species: Union[int, str]):
         self.filepath = filepath
         self.name = name
         self.species = species
@@ -33,45 +34,51 @@ class Phase:
         return f"Loading data from {self.filepath} for species '{self.species}'"
 
 
-class Timestep:
-    def __init__(self, timestep):
-        self.timestep = timestep
-        self.fields = {"Total": {}, "External": {}}
-        self.phases = defaultdict(lambda: {})
-
-    def add_field(self, field: Field) -> None:
-        if field.source not in self.fields:
-            raise ValueError(f"Unknown source: {field.source}")
-        self.fields[field.source][field.name] = field
-
-    def add_phase(self, phase: Phase) -> None:
-        self.phases[phase.species][phase.name] = phase
+class FieldContainer:
+    def __init__(self, fields_dict: dict):
+        self.fields_dict = fields_dict
 
     def __getattr__(self, name: str) -> Callable:
+        def get_field(origin: str = "Total") -> Field:
+            origin = origin.capitalize()
+            if origin not in self.fields_dict or name not in self.fields_dict[origin]:
+                raise AttributeError(f"Field '{name}' with origin '{origin}' not found")
+            return self.fields_dict[origin][name]
 
-        def get_field(source: str) -> Field:
-            source = source.capitalize()
-            if source not in self.fields or name not in self.fields[source]:
-                raise AttributeError(f"Field '{name}' with source '{source}' not found at timestep {self.timestep}")
-            return self.fields[source][name]
+        return get_field
 
-        def get_phase(species: int) -> Phase:
-            if name not in self.phases.get(species, {}):
-                raise AttributeError(f"Phase '{name}' for species {species} not found at timestep {self.timestep}")
-            return self.phases[species][name]
 
-        def get_attr(arg: Union[str, int] = None) -> Union[Field, Phase]:
+class PhaseContainer:
+    def __init__(self, phases_dict: dict):
+        self.phases_dict = phases_dict
 
-            if any(name in phases for phases in self.phases.values()):  # If `name` corresponds to a phase
-                return get_phase(species=arg if arg != 1 and arg != None else 1)
-            elif any(name in fields for fields in self.fields.values()):  # If `name` is a field
-                return get_field(source=arg if arg != "Total" and arg != None else "Total")
+    def __getattr__(self, name: str) -> Callable:
+        def get_phase(species: Union[int, str] = "Total") -> Phase:
+            if name not in self.phases_dict.get(species, {}):
+                raise AttributeError(f"Phase '{name}' for species '{species}' not found")
+            return self.phases_dict[species][name]
 
-            # If `name` is neither a field nor a phase, raise an error
-            raise AttributeError(f"Attribute '{name}' does not exist at timestep {self.timestep}")
+        return get_phase
 
-        # Return callable function that allows function argument like "Total" or "External"
-        return get_attr
+
+class Timestep:
+    def __init__(self, timestep: int):
+        self.timestep = timestep
+        self.fields_dict = {"Total": {}, "External": {}, "Self": {}, None: {}}
+        self.phases_dict = defaultdict(lambda: {})
+
+        # User uses these attributes to dynamically resolve a given field or phase using FieldContainer
+        # or PhaseContainer __getattr__() dunder function.
+        self.fields = FieldContainer(self.fields_dict)
+        self.phases = PhaseContainer(self.phases_dict)
+
+    def add_field(self, field: Field) -> None:
+        if field.origin not in self.fields_dict:
+            raise ValueError(f"Unknown origin: {field.origin}")
+        self.fields_dict[field.origin][field.name] = field
+
+    def add_phase(self, phase: Phase) -> None:
+        self.phases_dict[phase.species][phase.name] = phase
 
 
 class DHP:
@@ -80,7 +87,9 @@ class DHP:
         self.timesteps_dict = {}
         self.fieldname_mapping = {
             "Magnetic": "B",
-            "Electric": "E"
+            "Electric": "E",
+            "FluidVel": "V",
+            "CurrentDens": "J"
         }
         self.traverse_directory()
 
@@ -95,7 +104,9 @@ class DHP:
 
     def process_field(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
         category = folder_components[1]
-        source = folder_components[-2]
+        if category == "CurrentDens":
+            folder_components.insert(2, "Total")
+        origin = folder_components[-2]
         component = folder_components[-1]
 
         prefix = self.fieldname_mapping.get(category)
@@ -106,29 +117,27 @@ class DHP:
         name = f"{prefix}{component}"
         if timestep not in self.timesteps_dict:
             self.timesteps_dict[timestep] = Timestep(timestep)
-        field = Field(os.path.join(dirpath, filename), name, source)
+        field = Field(os.path.join(dirpath, filename), name, origin)
         self.timesteps_dict[timestep].add_field(field)
 
     def process_phase(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
         name = folder_components[-2]
-        species = int(re.search(r'\d+', folder_components[-1]).group())
+        species_str = folder_components[-1]
+        species = int(re.search(r'\d+', species_str).group()) if species_str != "Total" else species_str
         if timestep not in self.timesteps_dict:
             self.timesteps_dict[timestep] = Timestep(timestep)
         phase = Phase(os.path.join(dirpath, filename), name, species)
         self.timesteps_dict[timestep].add_phase(phase)
 
     def traverse_directory(self) -> None:
-        file_info = []
         timestep_pattern = re.compile(r"_(\d+)\.h5$")
-
         for dirpath, _, filenames in os.walk(self.outputpath):
             for filename in filenames:
                 match = timestep_pattern.search(filename)
-
                 if match:
                     timestep = int(match.group(1))
                     self.process_file(dirpath, filename, timestep)
-                        
+
     def timestep(self, ts: int) -> Timestep:
         if ts in self.timesteps_dict:
             return self.timesteps_dict[ts]
@@ -141,10 +150,11 @@ class DHP:
 
 def main():
     dhp = DHP("/project/astroplasmas/bricker/dhybridrpy/dhybridrpy/Output")
-    print(dhp.timestep(0).Ez("External").data)
-    print(dhp.timestep(32).p1x1(1).data)
-    print(dhp.timestep(64).x3x2x1().data)
-    print(dhp.timestep(32).EIntensity().data)
+    print(dhp.timestep(32).fields.Ez(origin="Total").data)
+    print(dhp.timestep(32).phases.x3x2x1(species=1).data)
+    print(dhp.timesteps)
+    print(dhp.timestep(32).fields.Jx().data)
+
 
 if __name__ == "__main__":
     main()
