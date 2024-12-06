@@ -15,7 +15,7 @@ class Data:
     def __init__(self, filepath: str, name: str):
         self.filepath = filepath
         self.name = name
-        self.data_dict = {}
+        self._data_dict = {}
 
     def get_hdf5_data(self, name: str, filepath: str) -> dict:
         d = {}
@@ -36,9 +36,13 @@ class Data:
         
         return d
 
-    def get_property(self, prop: str) -> dict:
-        if not self.data_dict:
-            self.data_dict = self.get_hdf5_data(self.name, self.filepath)
+    @property
+    def data_dict(self) -> dict:
+        if not self._data_dict:
+            self._data_dict = self.get_hdf5_data(self.name, self.filepath)
+        return self._data_dict
+
+    def get_property(self, prop: str) -> np.array:
         return self.data_dict[f"{self.name}{prop}"]
 
     @property
@@ -190,9 +194,9 @@ class DHP:
 
 def main():
     dhp = DHP("/project/astroplasmas/bricker/dhybridrpy/dhybridrpy/Output")
-    print(dhp.timestep(32).fields.Ez(origin="Total").xlimdata)
+    # print(dhp.timestep(32).fields.Ez(origin="Total").xlimdata)
     # print(dhp.timestep(32).phases.x3x2x1(species=1).data)
-    # print(dhp.timestep(32).fields.Jx().data)
+    print(dhp.timestep(32).phases.etx1(species=1).data)
     # print(dhp.timesteps)
 
 
