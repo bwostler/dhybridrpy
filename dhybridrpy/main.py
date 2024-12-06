@@ -17,7 +17,7 @@ class Data:
         self.name = name
         self.data_dict = {}
 
-    def get_hdf5_data(name, filepath):
+    def get_hdf5_data(self, name: str, filepath: str) -> dict:
         d = {}
         with h5py.File(filepath, "r") as f:
             d[name] = f["DATA"][:].T
@@ -38,27 +38,27 @@ class Data:
 
     def get_property(self, prop: str) -> dict:
         if not self.data_dict:
-            self.data_dict = Data.get_hdf5_data(self.name, self.filepath)
+            self.data_dict = self.get_hdf5_data(self.name, self.filepath)
         return self.data_dict[f"{self.name}{prop}"]
 
     @property
-    def data(self):
+    def data(self) -> np.array:
         return self.get_property("")
 
     @property
-    def xdata(self):
+    def xdata(self) -> np.array:
         return self.get_property("_x")
 
     @property
-    def ydata(self):
+    def ydata(self) -> np.array:
         return self.get_property("_y")
 
     @property
-    def xlimdata(self):
+    def xlimdata(self) -> np.array:
         return self.get_property("_xlim")
 
     @property
-    def ylimdata(self):
+    def ylimdata(self) -> np.array:
         return self.get_property("_ylim")
 
 
@@ -183,7 +183,6 @@ class DHP:
             return self.timesteps_dict[ts]
         raise ValueError(f"Timestep {ts} not found")
 
-    # Todo: be able to pass a key, like "Ex", to get all timesteps where Ex is defined?
     @property
     def timesteps(self) -> np.array:
         return np.sort(list(self.timesteps_dict))
