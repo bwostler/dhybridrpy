@@ -23,11 +23,11 @@ class Data:
         self.name = name
         self._data_dict = {}
 
-    def get_hdf5_data(self, name: str, filepath: str) -> dict:
+    def get_hdf5_data(self) -> dict:
         d = {}
-        with h5py.File(filepath, "r") as f:
-            d[name] = f["DATA"][:].T
-            _N1, _N2 = d[name].shape
+        with h5py.File(self.filepath, "r") as f:
+            d[self.name] = f["DATA"][:].T
+            _N1, _N2 = d[self.name].shape
 
             x1 = f["AXIS"]["X1 AXIS"][:]
             x2 = f["AXIS"]["X2 AXIS"][:]
@@ -35,17 +35,17 @@ class Data:
             dx1 = (x1[1] - x1[0]) / _N1
             dx2 = (x2[1] - x2[0]) / _N2
             
-            d[f"{name}_x"] = dx1 * np.arange(_N1) + dx1 / 2 + x1[0]
-            d[f"{name}_y"] = dx2 * np.arange(_N2) + dx2 / 2 + x2[0]
-            d[f"{name}_xlim"] = x1
-            d[f"{name}_ylim"] = x2
-        
+            d[f"{self.name}_x"] = dx1 * np.arange(_N1) + dx1 / 2 + x1[0]
+            d[f"{self.name}_y"] = dx2 * np.arange(_N2) + dx2 / 2 + x2[0]
+            d[f"{self.name}_xlim"] = x1
+            d[f"{self.name}_ylim"] = x2
+            
         return d
 
     @property
     def data_dict(self) -> dict:
         if not self._data_dict:
-            self._data_dict = self.get_hdf5_data(self.name, self.filepath)
+            self._data_dict = self.get_hdf5_data()
         return self._data_dict
 
     def get_property(self, prop: str) -> np.array:
