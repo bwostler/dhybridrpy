@@ -2,6 +2,7 @@ import numpy as np
 import os
 import re
 import logging
+import h5py
 
 from collections import defaultdict
 from typing import Union, Callable
@@ -10,28 +11,67 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class Field:
-    def __init__(self, filepath: str, name: str, origin: str):
-        self.filepath = filepath # Absolute path to field file
-        self.name = name # e.g., "Ex"
-        self.origin = origin # e.g., "External"
-
-    @property
-    def data(self):
-        # Placeholder for data loading logic
-        return f"Loading data from {self.filepath} for origin '{self.origin}'"
-
-
-class Phase:
-    def __init__(self, filepath: str, name: str, species: Union[int, str]):
+class Data:
+    def __init__(self, filepath: str, name: str):
         self.filepath = filepath
         self.name = name
-        self.species = species
+        self.data_dict = {}
+
+    def get_hdf5_data(name, filepath):
+        d = {}
+        with h5py.File(filepath, "r") as f:
+            d[name] = f["DATA"][:].T
+            _N1, _N2 = d[name].shape
+
+            x1 = f["AXIS"]["X1 AXIS"][:]
+            x2 = f["AXIS"]["X2 AXIS"][:]
+            
+            dx1 = (x1[1] - x1[0]) / _N1
+            dx2 = (x2[1] - x2[0]) / _N2
+            
+            d[f"{name}_x"] = dx1 * np.arange(_N1) + dx1 / 2 + x1[0]
+            d[f"{name}_y"] = dx2 * np.arange(_N2) + dx2 / 2 + x2[0]
+            d[f"{name}_xlim"] = x1
+            d[f"{name}_ylim"] = x2
+        
+        return d
+
+    def get_property(self, prop: str) -> dict:
+        if not self.data_dict:
+            self.data_dict = Data.get_hdf5_data(self.name, self.filepath)
+        return self.data_dict[f"{self.name}{prop}"]
 
     @property
     def data(self):
-        # Placeholder for data loading logic
-        return f"Loading data from {self.filepath} for species '{self.species}'"
+        return self.get_property("")
+
+    @property
+    def xdata(self):
+        return self.get_property("_x")
+
+    @property
+    def ydata(self):
+        return self.get_property("_y")
+
+    @property
+    def xlimdata(self):
+        return self.get_property("_xlim")
+
+    @property
+    def ylimdata(self):
+        return self.get_property("_ylim")
+
+
+class Field(Data):
+    def __init__(self, filepath: str, name: str, origin: str):
+        super().__init__(filepath, name)
+        self.origin = origin # e.g., "External"
+
+
+class Phase(Data):
+    def __init__(self, filepath: str, name: str, species: Union[int, str]):
+        super().__init__(filepath, name)
+        self.species = species
 
 
 class FieldContainer:
@@ -64,7 +104,7 @@ class PhaseContainer:
 class Timestep:
     def __init__(self, timestep: int):
         self.timestep = timestep
-        self.fields_dict = {"Total": {}, "External": {}, "Self": {}, None: {}}
+        self.fields_dict = {"Total": {}, "External": {}, "Self": {}}
         self.phases_dict = defaultdict(lambda: {})
 
         # User uses these attributes to dynamically resolve a given field or phase using FieldContainer
@@ -143,6 +183,7 @@ class DHP:
             return self.timesteps_dict[ts]
         raise ValueError(f"Timestep {ts} not found")
 
+    # Todo: be able to pass a key, like "Ex", to get all timesteps where Ex is defined?
     @property
     def timesteps(self) -> np.array:
         return np.sort(list(self.timesteps_dict))
@@ -150,10 +191,10 @@ class DHP:
 
 def main():
     dhp = DHP("/project/astroplasmas/bricker/dhybridrpy/dhybridrpy/Output")
-    print(dhp.timestep(32).fields.Ez(origin="Total").data)
-    print(dhp.timestep(32).phases.x3x2x1(species=1).data)
-    print(dhp.timesteps)
-    print(dhp.timestep(32).fields.Jx().data)
+    print(dhp.timestep(32).fields.Ez(origin="Total").xlimdata)
+    # print(dhp.timestep(32).phases.x3x2x1(species=1).data)
+    # print(dhp.timestep(32).fields.Jx().data)
+    # print(dhp.timesteps)
 
 
 if __name__ == "__main__":
