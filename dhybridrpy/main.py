@@ -3,6 +3,7 @@ import os
 import re
 import logging
 import h5py
+import f90nml
 
 from collections import defaultdict
 from typing import Union, Callable
@@ -39,7 +40,7 @@ class Data:
             d[f"{self.name}_y"] = dx2 * np.arange(_N2) + dx2 / 2 + x2[0]
             d[f"{self.name}_xlim"] = x1
             d[f"{self.name}_ylim"] = x2
-            
+
         return d
 
     @property
@@ -131,9 +132,54 @@ class Timestep:
         self.phases_dict[phase.species][phase.name] = phase
 
 
+class Input:
+    def __init__(self, inputfile: str):
+        self.inputfile = inputfile
+        outputfile = f"{self.inputfile}.tmp"
+        self.convert_inputfile_format(outputfile)
+        self.input_dict = f90nml.read(outputfile)
+        os.remove(outputfile)
+
+    def convert_inputfile_format(self, outputfile: str):
+        
+        with open(self.inputfile, 'r') as infile:
+            content = infile.read()
+
+        # Pattern to match sections with curly braces
+        pattern = re.compile(r'(\w+)\s*\{([^}]*)\}', re.DOTALL)
+
+        # Create output content
+        namelist_output = []
+
+        for match in pattern.finditer(content):
+            section_name = match.group(1)
+            parameters = match.group(2).strip()
+
+            # Start the namelist
+            namelist_output.append(f"&{section_name}")
+            
+            # Process parameters
+            for line in parameters.splitlines():
+                line = line.strip()
+                if line.startswith("!") or not line:
+                    # Retain comments and skip empty lines
+                    namelist_output.append(line)
+                else:
+                    # Remove trailing commas and add parameters
+                    namelist_output.append(line.rstrip(','))
+
+            # End the namelist
+            namelist_output.append("/\n")
+
+        # Write to output file
+        with open(outputfile, 'w') as outfile:
+            outfile.write("\n".join(namelist_output))
+
+
 class DHP:
-    def __init__(self, outputpath: str):
+    def __init__(self, outputpath: str, inputfile: str):
         self.outputpath = outputpath
+        self.inputfile = inputfile
         self.timesteps_dict = {}
         self.fieldname_mapping = {
             "Magnetic": "B",
@@ -142,6 +188,7 @@ class DHP:
             "CurrentDens": "J"
         }
         self.traverse_directory()
+        self.inputs = Input(inputfile).input_dict
 
     def process_file(self, dirpath: str, filename: str, timestep: int) -> None:
         folder_components = os.path.relpath(dirpath, self.outputpath).split(os.sep)
@@ -198,13 +245,18 @@ class DHP:
         return np.sort(list(self.timesteps_dict))
 
 
-def main():
-    dhp = DHP("/project/astroplasmas/bricker/dhybridrpy/dhybridrpy/Output")
-    # print(dhp.timestep(32).fields.Ez(origin="Total").xlimdata)
-    # print(dhp.timestep(32).phases.x3x2x1(species=1).data)
-    print(dhp.timestep(32).phases.etx1(species=1).data)
-    # print(dhp.timesteps)
 
+
+def main():
+    dhp = DHP(
+        "/project/astroplasmas/bricker/dhybridrpy/dhybridrpy/Output",
+        "/project/astroplasmas/bricker/dhybridrpy/dhybridrpy/input/input"
+    )
+    print(dhp.inputs["time"]["niter"])
+    print(dhp.timestep(32).fields.Ez(origin="Total").xlimdata)
+    print(dhp.timestep(32).phases.x3x2x1(species=1).data)
+    print(dhp.timestep(32).phases.etx1(species=1).data)
+    print(dhp.timesteps)
 
 if __name__ == "__main__":
     main()
