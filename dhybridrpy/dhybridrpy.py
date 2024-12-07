@@ -20,19 +20,19 @@ class InputFileParser:
         Parses the input file and returns its content as a subclass of dictionary.
         Temporary files are managed and removed automatically.
         """
-        tmp_output_files = f"{self.input_file}.tmp"
+        tmp_input_file = f"{self.input_file}.tmp"
         try:
-            self._convert_to_namelist_format(tmp_output_files)
-            return f90nml.read(tmp_output_files)
+            self._create_nml_input_file(tmp_input_file)
+            return f90nml.read(tmp_input_files)
         finally:
             # Ensure the temporary file is cleaned up
-            if os.path.exists(tmp_output_files):
-                os.remove(tmp_output_files)
+            if os.path.exists(tmp_input_file):
+                os.remove(tmp_input_file)
 
-    def _convert_to_namelist_format(self, output_file: str) -> None:
+    def _create_nml_input_file(self, output_file: str) -> None:
         """
         Converts the input file content to a Fortran namelist format
-        and writes it to the specified output file.
+        and writes it to the specified output filename.
         """
         with open(self.input_file, 'r') as infile:
             content = infile.read()
