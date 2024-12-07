@@ -65,19 +65,19 @@ class dhybridrpy:
             "FluidVel": "V",
             "CurrentDens": "J"
         }
-        self.traverse_directory()
+        self._traverse_directory()
         self.inputs = Input(inputfile).input_dict
 
-    def process_file(self, dirpath: str, filename: str, timestep: int) -> None:
+    def _process_file(self, dirpath: str, filename: str, timestep: int) -> None:
         folder_components = os.path.relpath(dirpath, self.outputpath).split(os.sep)
         output_type = folder_components[0]
 
         if output_type == "Fields":
-            self.process_field(dirpath, filename, timestep, folder_components)
+            self._process_field(dirpath, filename, timestep, folder_components)
         elif output_type == "Phase":
-            self.process_phase(dirpath, filename, timestep, folder_components)
+            self._process_phase(dirpath, filename, timestep, folder_components)
 
-    def process_field(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
+    def _process_field(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
         category = folder_components[1]
         if category == "CurrentDens":
             folder_components.insert(2, "Total")
@@ -95,7 +95,7 @@ class dhybridrpy:
         field = Field(os.path.join(dirpath, filename), name, origin)
         self.timesteps_dict[timestep].add_field(field)
 
-    def process_phase(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
+    def _process_phase(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
         name = folder_components[-2]
         species_str = folder_components[-1]
         species = int(re.search(r'\d+', species_str).group()) if species_str != "Total" else species_str
@@ -104,14 +104,14 @@ class dhybridrpy:
         phase = Phase(os.path.join(dirpath, filename), name, species)
         self.timesteps_dict[timestep].add_phase(phase)
 
-    def traverse_directory(self) -> None:
+    def _traverse_directory(self) -> None:
         timestep_pattern = re.compile(r"_(\d+)\.h5$")
         for dirpath, _, filenames in os.walk(self.outputpath):
             for filename in filenames:
                 match = timestep_pattern.search(filename)
                 if match:
                     timestep = int(match.group(1))
-                    self.process_file(dirpath, filename, timestep)
+                    self._process_file(dirpath, filename, timestep)
 
     def timestep(self, ts: int) -> Timestep:
         if ts in self.timesteps_dict:

@@ -7,16 +7,18 @@ Todo:
 """
 
 def main():
-    dhp = dhybridrpy(
+    dpy = dhybridrpy(
         "/project/astroplasmas/bricker/dhybridrpy/dhybridrpy/Output",
-        "/project/astroplasmas/bricker/dhybridrpy/dhybridrpy/input/input"
+        "/project/astroplasmas/bricker/dhybridrpy/dhybridrpy/input/input_complex"
     )
-    print(dhp.inputs)
-    print(dhp.inputs["time"]["niter"])
-    print(dhp.timestep(32).fields.Ez(origin="Total").xlimdata)
-    print(dhp.timestep(32).phases.x3x2x1(species=1).data)
-    print(dhp.timestep(32).phases.etx1(species=1).data)
-    print(dhp.timesteps)
+    print(dpy.inputs)
+    print(dpy.inputs["time"]["niter"])
+    print(dpy.inputs["diag_species"])
+    print(dpy.timestep(32).fields.Ez(origin="Total").data)
+    dpy.timestep(32).fields.Ez(origin="Total").plot()
+    # print(dpy.timestep(32).phases.x3x2x1(species=1).data)
+    # print(dpy.timestep(32).phases.etx1(species=1).data)
+    # print(dpy.timesteps)
 
 if __name__ == "__main__":
     main()

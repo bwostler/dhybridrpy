@@ -1,7 +1,9 @@
 import h5py
 import numpy as np
+import matplotlib.pyplot as plt
 
 from typing import Union
+from matplotlib.axes import Axes
 
 class Data:
     def __init__(self, filepath: str, name: str):
@@ -9,53 +11,70 @@ class Data:
         self.name = name
         self._data_dict = {}
 
-    def get_hdf5_data(self) -> dict:
-        d = {}
-        with h5py.File(self.filepath, "r") as f:
-            d[self.name] = f["DATA"][:].T
-            _N1, _N2 = d[self.name].shape
+    def _get_hdf5_data(self) -> dict:
+        with h5py.File(self.filepath, "r") as file:
+            data = file["DATA"][:].T
+            x1lims, x2lims = file["AXIS"]["X1 AXIS"][:], file["AXIS"]["X2 AXIS"][:]
+            N1, N2 = data.shape
 
-            x1 = f["AXIS"]["X1 AXIS"][:]
-            x2 = f["AXIS"]["X2 AXIS"][:]
-            
-            dx1 = (x1[1] - x1[0]) / _N1
-            dx2 = (x2[1] - x2[0]) / _N2
-            
-            d[f"{self.name}_x"] = dx1 * np.arange(_N1) + dx1 / 2 + x1[0]
-            d[f"{self.name}_y"] = dx2 * np.arange(_N2) + dx2 / 2 + x2[0]
-            d[f"{self.name}_xlim"] = x1
-            d[f"{self.name}_ylim"] = x2
+            dx1 = (x1lims[1] - x1lims[0]) / N1
+            dx2 = (x2lims[1] - x2lims[0]) / N2
+            x_coords = dx1 * np.arange(N1) + dx1 / 2 + x1lims[0]
+            y_coords = dx2 * np.arange(N2) + dx2 / 2 + x2lims[0]
 
-        return d
+            return {
+                self.name: data,
+                f"{self.name}_x": x_coords,
+                f"{self.name}_y": y_coords,
+                f"{self.name}_xlim": x1lims,
+                f"{self.name}_ylim": x2lims,
+            }
 
     @property
     def data_dict(self) -> dict:
         if not self._data_dict:
-            self._data_dict = self.get_hdf5_data()
+            self._data_dict = self._get_hdf5_data()
         return self._data_dict
 
-    def get_property(self, prop: str) -> np.array:
+    def _get_property(self, prop: str) -> np.array:
         return self.data_dict[f"{self.name}{prop}"]
 
     @property
     def data(self) -> np.array:
-        return self.get_property("")
+        return self._get_property("")
 
     @property
     def xdata(self) -> np.array:
-        return self.get_property("_x")
+        return self._get_property("_x")
 
     @property
     def ydata(self) -> np.array:
-        return self.get_property("_y")
+        return self._get_property("_y")
 
     @property
     def xlimdata(self) -> np.array:
-        return self.get_property("_xlim")
+        return self._get_property("_xlim")
 
     @property
     def ylimdata(self) -> np.array:
-        return self.get_property("_ylim")
+        return self._get_property("_ylim")
+
+    def plot(self, axis: Axes = None) -> None:
+        if axis is None:
+            fig, axis = plt.subplots(figsize=(8, 6))
+
+        mesh = axis.pcolormesh(
+            self.xdata,
+            self.ydata,
+            self.data.T,
+            shading="auto"
+        )
+        axis.set_title(f"{self.name} data")
+        axis.set_xlabel(r"$x$")
+        axis.set_ylabel(r"$y$")
+        cbar = plt.colorbar(mesh, ax=axis)
+        cbar.set_label(f"{self.name}")
+        plt.show(f"{self.name}.png")
 
 
 class Field(Data):
