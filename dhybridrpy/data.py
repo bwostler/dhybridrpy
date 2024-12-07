@@ -59,21 +59,36 @@ class Data:
     def ylimdata(self) -> np.array:
         return self._get_property("_ylim")
 
-    def plot(self, axis: Axes = None) -> None:
-        if axis is None:
-            fig, axis = plt.subplots(figsize=(8, 6))
+    def plot(self, 
+        ax: Axes = None,
+        title: str = None,
+        xlabel: str = r"$x$",
+        ylabel: str = r"$y$",
+        colormap: str = "viridis",
+        colorbar_label: str = None,
+        xlim: tuple = None,
+        ylim: tuple = None,
+        **kwargs
+    ) -> None:
 
-        mesh = axis.pcolormesh(
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(8, 6))
+
+        mesh = ax.pcolormesh(
             self.xdata,
             self.ydata,
             self.data.T,
-            shading="auto"
+            cmap=colormap,
+            shading="auto",
+            **kwargs
         )
-        axis.set_title(f"{self.name} data")
-        axis.set_xlabel(r"$x$")
-        axis.set_ylabel(r"$y$")
-        cbar = plt.colorbar(mesh, ax=axis)
-        cbar.set_label(f"{self.name}")
+        ax.set_title(title if title else f"{self.name} data")
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        ax.set_xlim(xlim if xlim else self.xlimdata)
+        ax.set_ylim(ylim if ylim else self.ylimdata)
+        cbar = plt.colorbar(mesh, ax=ax)
+        cbar.set_label(colorbar_label if colorbar_label else f"{self.name}")
         plt.show()
 
 

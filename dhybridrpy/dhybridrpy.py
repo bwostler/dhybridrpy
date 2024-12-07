@@ -58,8 +58,8 @@ class dhybridrpy:
     def __init__(self, inputfile: str, outputpath: str):
         self.inputfile = inputfile
         self.outputpath = outputpath
-        self.timesteps_dict = {}
-        self.fieldname_mapping = {
+        self._timesteps_dict = {}
+        self._field_mapping = {
             "Magnetic": "B",
             "Electric": "E",
             "FluidVel": "V",
@@ -84,25 +84,25 @@ class dhybridrpy:
         origin = folder_components[-2]
         component = folder_components[-1]
 
-        prefix = self.fieldname_mapping.get(category)
+        prefix = self._field_mapping.get(category)
         if not prefix:
             logger.warning(f"Unknown category '{category}'. Skipping {filename}")
             return
 
         name = f"{prefix}{component}"
-        if timestep not in self.timesteps_dict:
-            self.timesteps_dict[timestep] = Timestep(timestep)
+        if timestep not in self._timesteps_dict:
+            self._timesteps_dict[timestep] = Timestep(timestep)
         field = Field(os.path.join(dirpath, filename), name, origin)
-        self.timesteps_dict[timestep].add_field(field)
+        self._timesteps_dict[timestep].add_field(field)
 
     def _process_phase(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
         name = folder_components[-2]
         species_str = folder_components[-1]
         species = int(re.search(r'\d+', species_str).group()) if species_str != "Total" else species_str
-        if timestep not in self.timesteps_dict:
-            self.timesteps_dict[timestep] = Timestep(timestep)
+        if timestep not in self._timesteps_dict:
+            self._timesteps_dict[timestep] = Timestep(timestep)
         phase = Phase(os.path.join(dirpath, filename), name, species)
-        self.timesteps_dict[timestep].add_phase(phase)
+        self._timesteps_dict[timestep].add_phase(phase)
 
     def _traverse_directory(self) -> None:
         timestep_pattern = re.compile(r"_(\d+)\.h5$")
@@ -114,10 +114,10 @@ class dhybridrpy:
                     self._process_file(dirpath, filename, timestep)
 
     def timestep(self, ts: int) -> Timestep:
-        if ts in self.timesteps_dict:
-            return self.timesteps_dict[ts]
+        if ts in self._timesteps_dict:
+            return self._timesteps_dict[ts]
         raise ValueError(f"Timestep {ts} not found")
 
     @property
     def timesteps(self) -> np.array:
-        return np.sort(list(self.timesteps_dict))
+        return np.sort(list(self._timesteps_dict))
