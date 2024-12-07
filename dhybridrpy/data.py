@@ -27,7 +27,7 @@ class Data:
                 f"{self.name}_x": x_coords,
                 f"{self.name}_y": y_coords,
                 f"{self.name}_xlim": x1lims,
-                f"{self.name}_ylim": x2lims,
+                f"{self.name}_ylim": x2lims
             }
 
     @property

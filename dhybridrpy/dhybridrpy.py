@@ -55,9 +55,9 @@ class Input:
 
 
 class dhybridrpy:
-    def __init__(self, outputpath: str, inputfile: str):
-        self.outputpath = outputpath
+    def __init__(self, inputfile: str, outputpath: str):
         self.inputfile = inputfile
+        self.outputpath = outputpath
         self.timesteps_dict = {}
         self.fieldname_mapping = {
             "Magnetic": "B",
