@@ -64,15 +64,16 @@ class Data:
         title: str = None,
         xlabel: str = r"$x$",
         ylabel: str = r"$y$",
-        colormap: str = "viridis",
-        colorbar_label: str = None,
         xlim: tuple = None,
         ylim: tuple = None,
+        dpi: int = 100,
+        colormap: str = "viridis",
+        colorbar_label: str = None,
         **kwargs
     ) -> None:
 
         if ax is None:
-            fig, ax = plt.subplots(figsize=(8, 6))
+            fig, ax = plt.subplots(figsize=(8, 6), dpi=dpi)
 
         mesh = ax.pcolormesh(
             self.xdata,
@@ -90,6 +91,7 @@ class Data:
         cbar = plt.colorbar(mesh, ax=ax)
         cbar.set_label(colorbar_label if colorbar_label else f"{self.name}")
         plt.show()
+        # plt.savefig(f"{self.name}.png", dpi=dpi) # for debugging purposes
 
 
 class Field(Data):
