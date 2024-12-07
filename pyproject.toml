@@ -8,5 +8,7 @@ dependencies = [
     "h5py>=3.12.1",
     "matplotlib>=3.9.2",
     "numpy>=2.1.2",
-    "ruff>=0.7.1"
+    "ruff>=0.7.1",
+    "h5py",
+    "f90nml"
 ]
