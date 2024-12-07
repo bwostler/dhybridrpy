@@ -74,7 +74,7 @@ class Data:
         axis.set_ylabel(r"$y$")
         cbar = plt.colorbar(mesh, ax=axis)
         cbar.set_label(f"{self.name}")
-        plt.show(f"{self.name}.png")
+        plt.show()
 
 
 class Field(Data):
