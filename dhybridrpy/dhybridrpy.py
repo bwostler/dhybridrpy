@@ -23,7 +23,7 @@ class InputFileParser:
         tmp_input_file = f"{self.input_file}.tmp"
         try:
             self._create_nml_input_file(tmp_input_file)
-            return f90nml.read(tmp_input_files)
+            return f90nml.read(tmp_input_file)
         finally:
             # Ensure the temporary file is cleaned up
             if os.path.exists(tmp_input_file):
