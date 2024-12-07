@@ -10,54 +10,71 @@ from data import Field, Phase
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class Input:
-    def __init__(self, inputfile: str):
-        self.inputfile = inputfile
-        outputfile = f"{self.inputfile}.tmp"
-        self.convert_inputfile_format(outputfile)
-        self.input_dict = f90nml.read(outputfile)
-        os.remove(outputfile)
+class InputFileParser:
+    def __init__(self, input_file: str):
+        self.input_file = input_file
+        self.input_dict = self._parse_input_file()
 
-    def convert_inputfile_format(self, outputfile: str) -> None:
+    def _parse_input_file(self) -> dict:
+        """
+        Parses the input file and returns its content as a subclass of dictionary.
+        Temporary files are managed and removed automatically.
+        """
+        tmp_output_files = f"{self.input_file}.tmp"
+        try:
+            self._convert_to_namelist_format(tmp_output_files)
+            return f90nml.read(tmp_output_files)
+        finally:
+            # Ensure the temporary file is cleaned up
+            if os.path.exists(tmp_output_files):
+                os.remove(tmp_output_files)
 
-        with open(self.inputfile, 'r') as infile:
+    def _convert_to_namelist_format(self, output_file: str) -> None:
+        """
+        Converts the input file content to a Fortran namelist format
+        and writes it to the specified output file.
+        """
+        with open(self.input_file, 'r') as infile:
             content = infile.read()
 
-        # Pattern to match sections with curly braces
-        pattern = re.compile(r'(\w+)\s*\{([^}]*)\}', re.DOTALL)
+        # Regular expression to match sections with curly braces
+        section_pattern = re.compile(r'(\w+)\s*\{([^}]*)\}', re.DOTALL)
 
-        # Create output content
-        namelist_output = []
+        # Generate namelist content
+        namelist_content = []
+        for match in section_pattern.finditer(content):
+            section_name, parameters = match.group(1), match.group(2).strip()
 
-        for match in pattern.finditer(content):
-            section_name = match.group(1)
-            parameters = match.group(2).strip()
+            # Begin the namelist section
+            namelist_content.append(f"&{section_name}")
+            namelist_content.extend(self._process_parameters(parameters))
+            namelist_content.append("/")  # End the namelist section
 
-            # Start the namelist
-            namelist_output.append(f"&{section_name}")
-            
-            # Process parameters
-            for line in parameters.splitlines():
-                line = line.strip()
-                if line.startswith("!") or not line:
-                    # Retain comments and skip empty lines
-                    namelist_output.append(line)
-                else:
-                    # Remove trailing commas and add parameters
-                    namelist_output.append(line.rstrip(','))
+        # Write the processed content to the output file
+        with open(output_file, 'w') as outfile:
+            outfile.write("\n".join(namelist_content))
 
-            # End the namelist
-            namelist_output.append("/\n")
-
-        # Write to output file
-        with open(outputfile, 'w') as outfile:
-            outfile.write("\n".join(namelist_output))
+    def _process_parameters(self, parameters: str) -> list:
+        """
+        Processes the parameters within a section, retaining comments
+        and ensuring valid namelist syntax.
+        """
+        processed_lines = []
+        for line in parameters.splitlines():
+            line = line.strip()
+            if line.startswith("!") or not line:
+                # Retain comments or skip empty lines
+                processed_lines.append(line)
+            else:
+                # Ensure proper formatting by removing trailing commas
+                processed_lines.append(line.rstrip(','))
+        return processed_lines
 
 
 class dhybridrpy:
-    def __init__(self, inputfile: str, outputpath: str):
-        self.inputfile = inputfile
-        self.outputpath = outputpath
+    def __init__(self, input_file: str, output_path: str):
+        self.input_file = input_file
+        self.output_path = output_path
         self._timesteps_dict = {}
         self._field_mapping = {
             "Magnetic": "B",
@@ -66,10 +83,10 @@ class dhybridrpy:
             "CurrentDens": "J"
         }
         self._traverse_directory()
-        self.inputs = Input(inputfile).input_dict
+        self.inputs = InputFileParser(input_file).input_dict
 
     def _process_file(self, dirpath: str, filename: str, timestep: int) -> None:
-        folder_components = os.path.relpath(dirpath, self.outputpath).split(os.sep)
+        folder_components = os.path.relpath(dirpath, self.output_path).split(os.sep)
         output_type = folder_components[0]
 
         if output_type == "Fields":
@@ -106,7 +123,7 @@ class dhybridrpy:
 
     def _traverse_directory(self) -> None:
         timestep_pattern = re.compile(r"_(\d+)\.h5$")
-        for dirpath, _, filenames in os.walk(self.outputpath):
+        for dirpath, _, filenames in os.walk(self.output_path):
             for filename in filenames:
                 match = timestep_pattern.search(filename)
                 if match:

@@ -8,14 +8,14 @@ Todo:
 
 def main():
     dpy = dhybridrpy(
-        inputfile="/project/astroplasmas/bricker/dhybridrpy/dhybridrpy/input/input_complex",
-        outputpath="/project/astroplasmas/bricker/dhybridrpy/dhybridrpy/Output"
+        input_file="/project/astroplasmas/bricker/dhybridrpy/dhybridrpy/input/input_complex",
+        output_path="/project/astroplasmas/bricker/dhybridrpy/dhybridrpy/Output"
     )
     print(dpy.inputs)
     print(dpy.inputs["time"]["niter"])
     print(dpy.inputs["diag_species"])
     print(dpy.timestep(32).fields.Ez(origin="Total").data)
-    dpy.timestep(32).fields.Ez().plot()
+    dpy.timestep(32).fields.Ez().plot(dpi=200)
     # print(dpy.timestep(32).phases.x3x2x1(species=1).data)
     # print(dpy.timestep(32).phases.etx1(species=1).data)
     # print(dpy.timesteps)

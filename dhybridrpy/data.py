@@ -6,13 +6,13 @@ from typing import Union
 from matplotlib.axes import Axes
 
 class Data:
-    def __init__(self, filepath: str, name: str):
-        self.filepath = filepath
+    def __init__(self, file_path: str, name: str):
+        self.file_path = file_path
         self.name = name
         self._data_dict = {}
 
     def _get_hdf5_data(self) -> dict:
-        with h5py.File(self.filepath, "r") as file:
+        with h5py.File(self.file_path, "r") as file:
             data = file["DATA"][:].T
             x1lims, x2lims = file["AXIS"]["X1 AXIS"][:], file["AXIS"]["X2 AXIS"][:]
             N1, N2 = data.shape
@@ -95,12 +95,12 @@ class Data:
 
 
 class Field(Data):
-    def __init__(self, filepath: str, name: str, origin: str):
-        super().__init__(filepath, name)
+    def __init__(self, file_path: str, name: str, origin: str):
+        super().__init__(file_path, name)
         self.origin = origin # e.g., "External"
 
 
 class Phase(Data):
-    def __init__(self, filepath: str, name: str, species: Union[int, str]):
-        super().__init__(filepath, name)
+    def __init__(self, file_path: str, name: str, species: Union[int, str]):
+        super().__init__(file_path, name)
         self.species = species
