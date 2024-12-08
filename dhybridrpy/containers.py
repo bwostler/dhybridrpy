@@ -10,7 +10,7 @@ class FieldContainer:
         def get_field(origin: str = "Total") -> Field:
             origin = origin.capitalize()
             if origin not in self.fields_dict or name not in self.fields_dict[origin]:
-                raise AttributeError(f"Field '{name}' with origin '{origin}' not found")
+                raise AttributeError(f"Field '{name}' with origin '{origin}' not found at this timestep.")
             return self.fields_dict[origin][name]
 
         return get_field
@@ -21,9 +21,9 @@ class PhaseContainer:
         self.phases_dict = phases_dict
 
     def __getattr__(self, name: str) -> Callable:
-        def get_phase(species: Union[int, str] = "Total") -> Phase:
+        def get_phase(species: Union[int, str] = 1) -> Phase:
             if name not in self.phases_dict.get(species, {}):
-                raise AttributeError(f"Phase '{name}' for species '{species}' not found")
+                raise AttributeError(f"Phase '{name}' for species '{species}' not found at this timestep.")
             return self.phases_dict[species][name]
 
         return get_phase

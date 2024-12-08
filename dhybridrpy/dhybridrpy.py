@@ -109,7 +109,7 @@ class dhybridrpy:
         name = f"{prefix}{component}"
         if timestep not in self._timesteps_dict:
             self._timesteps_dict[timestep] = Timestep(timestep)
-        field = Field(os.path.join(dirpath, filename), name, origin)
+        field = Field(os.path.join(dirpath, filename), name, timestep, origin)
         self._timesteps_dict[timestep].add_field(field)
 
     def _process_phase(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
@@ -118,7 +118,7 @@ class dhybridrpy:
         species = int(re.search(r'\d+', species_str).group()) if species_str != "Total" else species_str
         if timestep not in self._timesteps_dict:
             self._timesteps_dict[timestep] = Timestep(timestep)
-        phase = Phase(os.path.join(dirpath, filename), name, species)
+        phase = Phase(os.path.join(dirpath, filename), name, timestep, species)
         self._timesteps_dict[timestep].add_phase(phase)
 
     def _traverse_directory(self) -> None:

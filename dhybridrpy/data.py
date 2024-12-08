@@ -6,15 +6,17 @@ from typing import Union
 from matplotlib.axes import Axes
 
 class Data:
-    def __init__(self, file_path: str, name: str):
+    def __init__(self, file_path: str, name: str, timestep: int):
         self.file_path = file_path
         self.name = name
+        self.timestep = timestep
         self._data_dict = {}
 
     def _get_hdf5_data(self) -> dict:
         with h5py.File(self.file_path, "r") as file:
             data = file["DATA"][:].T
-            x1lims, x2lims = file["AXIS"]["X1 AXIS"][:], file["AXIS"]["X2 AXIS"][:]
+            x1lims = file["AXIS"]["X1 AXIS"][:]
+            x2lims = file["AXIS"]["X2 AXIS"][:]
             N1, N2 = data.shape
 
             dx1 = (x1lims[1] - x1lims[0]) / N1
@@ -69,6 +71,7 @@ class Data:
         dpi: int = 100,
         colormap: str = "viridis",
         colorbar_label: str = None,
+        save_name: str = None,
         **kwargs
     ) -> None:
 
@@ -76,12 +79,7 @@ class Data:
             fig, ax = plt.subplots(figsize=(8, 6), dpi=dpi)
 
         mesh = ax.pcolormesh(
-            self.xdata,
-            self.ydata,
-            self.data.T,
-            cmap=colormap,
-            shading="auto",
-            **kwargs
+            self.xdata, self.ydata, self.data.T, cmap=colormap, shading="auto", **kwargs
         )
         ax.set_title(title if title else f"{self.name} data")
         ax.set_xlabel(xlabel)
@@ -90,17 +88,20 @@ class Data:
         ax.set_ylim(ylim if ylim else self.ylimdata)
         cbar = plt.colorbar(mesh, ax=ax)
         cbar.set_label(colorbar_label if colorbar_label else f"{self.name}")
-        plt.show()
-        # plt.savefig(f"{self.name}.png", dpi=dpi) # for debugging purposes
+
+        if save_name:
+            plt.savefig(f"{save_name}.png", dpi=dpi) # for debugging purposes
+        else:
+            plt.show()
 
 
 class Field(Data):
-    def __init__(self, file_path: str, name: str, origin: str):
-        super().__init__(file_path, name)
+    def __init__(self, file_path: str, name: str, timestep: int, origin: str):
+        super().__init__(file_path, name, timestep)
         self.origin = origin # e.g., "External"
 
 
 class Phase(Data):
-    def __init__(self, file_path: str, name: str, species: Union[int, str]):
-        super().__init__(file_path, name)
+    def __init__(self, file_path: str, name: str, timestep: int, species: Union[int, str]):
+        super().__init__(file_path, name, timestep)
         self.species = species
