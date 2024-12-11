@@ -1,6 +1,6 @@
 from collections import defaultdict
 from typing import Callable, Union
-from data import Field, Phase
+from dhybridrpy.data import Field, Phase
 
 class FieldContainer:
     def __init__(self, fields_dict: dict):

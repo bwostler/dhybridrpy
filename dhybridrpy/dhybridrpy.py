@@ -4,8 +4,8 @@ import logging
 import numpy as np
 import f90nml
 
-from containers import Timestep
-from data import Field, Phase
+from dhybridrpy.containers import Timestep
+from dhybridrpy.data import Field, Phase
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
