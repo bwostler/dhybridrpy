@@ -10,5 +10,6 @@ dependencies = [
     "numpy>=2.1.2",
     "ruff>=0.7.1",
     "h5py",
-    "f90nml"
+    "f90nml",
+    "pre-commit"
 ]
