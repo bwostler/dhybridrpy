@@ -71,7 +71,7 @@ class InputFileParser:
         return processed_lines
 
 
-class dhybridrpy:
+class Dhybridrpy:
     def __init__(self, input_file: str, output_path: str):
         self.input_file = input_file
         self.output_path = output_path

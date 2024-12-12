@@ -1,5 +1,5 @@
-from .dhybridrpy import dhybridrpy, InputFileParser
+from .dhybridrpy import Dhybridrpy, InputFileParser
 from .containers import Timestep
 from .data import Field, Phase
 
-__all__ = ['dhybridrpy', 'InputFileParser', 'Timestep', 'Field', 'Phase']
+__all__ = ['Dhybridrpy', 'InputFileParser', 'Timestep', 'Field', 'Phase']
