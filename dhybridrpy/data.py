@@ -1,6 +1,7 @@
 import h5py
 import numpy as np
 import matplotlib.pyplot as plt
+import copy
 
 from typing import Union
 from matplotlib.axes import Axes
@@ -79,12 +80,18 @@ class Data:
         dpi: int = 100,
         colormap: str = "viridis",
         colorbar_label: str = None,
+        save: bool = False,
         save_name: str = None,
+        save_filetype: str = "png",
+        show: bool = True,
         **kwargs
-    ) -> None:
+    ) -> Axes:
 
         if ax is None:
             fig, ax = plt.subplots(figsize=(8, 6), dpi=dpi)
+        else:
+            # Since axes are by default mutable, ensure that it isn't modified.
+            ax = copy.deepcopy(ax)
 
         mesh = ax.pcolormesh(
             self.xdata, self.ydata, self.data.T, cmap=colormap, shading="auto", **kwargs
@@ -97,10 +104,15 @@ class Data:
         cbar = plt.colorbar(mesh, ax=ax)
         cbar.set_label(colorbar_label if colorbar_label else f"{self.name}")
 
-        if save_name:
-            plt.savefig(f"{save_name}.png", dpi=dpi) # for debugging purposes
-        else:
+        if save:
+            if not save_name:
+                save_name = f"{self.name}_timestep{self.timestep}"
+            plt.savefig(f"{save_name}.{save_filetype}", dpi=dpi)
+
+        if show:
             plt.show()
+
+        return ax
 
     def __repr__(self):
         return (
