@@ -78,6 +78,7 @@ class Data:
         xlim: tuple = None,
         ylim: tuple = None,
         dpi: int = 100,
+        show_colorbar: bool = True,
         colormap: str = "viridis",
         colorbar_label: str = None,
         save: bool = False,
@@ -93,16 +94,18 @@ class Data:
             # Since axes are by default mutable, ensure that it isn't modified.
             ax = copy.deepcopy(ax)
 
+        X, Y = np.meshgrid(self.xdata, self.ydata, indexing='ij')
         mesh = ax.pcolormesh(
-            self.xdata, self.ydata, self.data.T, cmap=colormap, shading="auto", **kwargs
+            X, Y, self.data.T, cmap=colormap, shading="nearest", **kwargs
         )
         ax.set_title(title if title else f"{self.name} at timestep {self.timestep}")
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
         ax.set_xlim(xlim if xlim else self.xlimdata)
         ax.set_ylim(ylim if ylim else self.ylimdata)
-        cbar = plt.colorbar(mesh, ax=ax)
-        cbar.set_label(colorbar_label if colorbar_label else f"{self.name}")
+        if show_colorbar:
+            cbar = plt.colorbar(mesh, ax=ax)
+            cbar.set_label(colorbar_label if colorbar_label else f"{self.name}")
 
         if save:
             if not save_name:
