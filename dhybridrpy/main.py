@@ -7,6 +7,7 @@ def main():
         input_file="/project/astroplasmas/bricker/dhybridrpy/examples/data/input/input",
         output_path="/project/astroplasmas/bricker/dhybridrpy/examples/data/Output"
     )
+
     # print(dpy.inputs)
     # print(dpy.inputs["time"])
     # print(dpy.inputs["diag_species"])
@@ -20,7 +21,7 @@ def main():
     # print(dpy._timesteps_dict[32])
 
     # Create a composite plot
-    fig, axes = plt.subplots(2, 3, figsize=(12, 8))\
+    fig, axes = plt.subplots(2, 3, figsize=(12, 8))
     
     # Easier to index a flat array
     axes = axes.flatten()
