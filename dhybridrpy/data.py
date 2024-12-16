@@ -90,13 +90,13 @@ class Data:
 
         if ax is None:
             fig, ax = plt.subplots(figsize=(8, 6), dpi=dpi)
-        else:
-            # Since axes are by default mutable, ensure that it isn't modified.
-            ax = copy.deepcopy(ax)
+        # else:
+        #     # Since axes are by default mutable, ensure that it isn't modified.
+        #     ax = copy.deepcopy(ax)
 
         X, Y = np.meshgrid(self.xdata, self.ydata, indexing='ij')
         mesh = ax.pcolormesh(
-            X, Y, self.data.T, cmap=colormap, shading="nearest", **kwargs
+            X, Y, self.data, cmap=colormap, shading="auto", **kwargs
         )
         ax.set_title(title if title else f"{self.name} at timestep {self.timestep}")
         ax.set_xlabel(xlabel)
