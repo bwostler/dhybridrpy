@@ -10,7 +10,7 @@ class FieldContainer:
         def get_field(origin: str = "Total") -> Field:
             origin = origin.capitalize()
             if origin not in self.fields_dict or name not in self.fields_dict[origin]:
-                raise AttributeError(f"Field '{name}' with origin '{origin}' not found at this timestep.")
+                raise AttributeError(f"Field '{name}' with origin '{origin}' not found at all requested timesteps.")
             return self.fields_dict[origin][name]
 
         return get_field
