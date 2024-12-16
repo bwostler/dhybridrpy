@@ -13,14 +13,14 @@ class Data:
         self._data_dict = {}
         self._data_shape = None
 
-    def _get_hdf5_data(self) -> np.array:
-        """Retrieve the entire dataset from the file."""
+    def _get_data(self) -> np.array:
+        """Retrieve the data values from the file."""
         if self.name not in self._data_dict:
             with h5py.File(self.file_path, "r") as file:
                 self._data_dict[self.name] = file["DATA"][:].T
         return self._data_dict[self.name]
 
-    def _get_hdf5_coordinate_axis(self, axis_name: str) -> np.array:
+    def _get_coordinate_limits(self, axis_name: str) -> np.array:
         """Retrieve a specific axis from the file."""
         if axis_name not in self._data_dict:
             with h5py.File(self.file_path, "r") as file:
@@ -31,7 +31,7 @@ class Data:
         """Compute coordinates for a given axis."""
         key = f"{axis_name} coords"
         if key not in self._data_dict:
-            axis_limits = self._get_hdf5_coordinate_axis(axis_name)
+            axis_limits = self._get_coordinate_limits(axis_name)
             delta = (axis_limits[1] - axis_limits[0]) / size
             self._data_dict[key] = delta*np.arange(size) + (delta/2) + axis_limits[0]
         return self._data_dict[key]
@@ -46,8 +46,8 @@ class Data:
 
     @property
     def data(self) -> np.array:
-        """Retrieve the main dataset."""
-        return self._get_hdf5_data()
+        """Retrieve the data values."""
+        return self._get_data()
 
     @property
     def xdata(self) -> np.array:
@@ -62,12 +62,12 @@ class Data:
     @property
     def xlimdata(self) -> np.array:
         """Retrieve x-axis limits."""
-        return self._get_hdf5_coordinate_axis("X1 AXIS")
+        return self._get_coordinate_limits("X1 AXIS")
 
     @property
     def ylimdata(self) -> np.array:
         """Retrieve y-axis limits."""
-        return self._get_hdf5_coordinate_axis("X2 AXIS")
+        return self._get_coordinate_limits("X2 AXIS")
 
     def plot(self, 
         ax: Axes = None,
