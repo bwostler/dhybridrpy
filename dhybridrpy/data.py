@@ -115,7 +115,7 @@ class Data:
         return ax
 
     def _repr_text(self) -> str:
-        return f"file_path='{self.file_path}', name='{self.name}', timestep={self.timestep}"
+        return f"file_path={self.file_path}, name={self.name}, timestep={self.timestep}"
 
     def __repr__(self):
         return f"Data({self._repr_text()})"
@@ -127,7 +127,7 @@ class Field(Data):
         self.origin = origin # e.g., "External"
 
     def __repr__(self):
-        return f"Field({super()._repr_text()}, origin='{self.origin}')"
+        return f"Field({super()._repr_text()}, origin={self.origin})"
 
 
 class Phase(Data):
@@ -136,4 +136,4 @@ class Phase(Data):
         self.species = species
 
     def __repr__(self):
-        return f"Phase({super()._repr_text()}, species={repr(self.species)})"
+        return f"Phase({super()._repr_text()}, species={self.species})"
