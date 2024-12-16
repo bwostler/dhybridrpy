@@ -19,15 +19,19 @@ def main():
     # print(dpy.timestep(32).phases.p3x1().data_dict)
     # print(dpy._timesteps_dict[32])
 
-    # Create a composite plot with 2 rows and 3 columns (to hold 6 plots)
-    fig, axes = plt.subplots(2, 3, figsize=(12, 8))
-    axes = axes.flatten()  # Flatten the 2D array of axes for easier indexing
+    # Create a composite plot
+    fig, axes = plt.subplots(2, 3, figsize=(12, 8))\
+    
+    # Easier to index a flat array
+    axes = axes.flatten()
 
+    # Obtain consistent colorbar bounds from field data
     timesteps = dpy.timesteps[1:]
     all_data = [dpy.timestep(ts).fields.Ex().data for ts in timesteps]
     vmin = np.min([np.min(data) for data in all_data])
     vmax = np.max([np.max(data) for data in all_data])
 
+    # Plot field data
     for i, ts in enumerate(timesteps):
         Ex = dpy.timestep(ts).fields.Ex()
         Ex.plot(ax=axes[i], vmin=vmin, vmax=vmax)
