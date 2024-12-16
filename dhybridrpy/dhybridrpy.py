@@ -4,8 +4,8 @@ import logging
 import numpy as np
 import f90nml
 
-from dhybridrpy.containers import Timestep
-from dhybridrpy.data import Field, Phase
+from .containers import Timestep
+from .data import Field, Phase
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,6 +24,9 @@ class InputFileParser:
         try:
             self._create_nml_input_file(tmp_input_file)
             return f90nml.read(tmp_input_file)
+        except Exception as e:
+            logger.error(f"Failed to parse input file: {e}")
+            raise
         finally:
             # Ensure the temporary file is cleaned up
             if os.path.exists(tmp_input_file):

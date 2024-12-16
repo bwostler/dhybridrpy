@@ -1,6 +1,6 @@
 from collections import defaultdict
 from typing import Callable, Union
-from dhybridrpy.data import Field, Phase
+from .data import Field, Phase
 
 class FieldContainer:
     def __init__(self, fields_dict: dict):
@@ -47,3 +47,12 @@ class Timestep:
 
     def add_phase(self, phase: Phase) -> None:
         self.phases_dict[phase.species][phase.name] = phase
+
+    def __repr__(self):
+        fields_repr = {k: list(v.keys()) for k, v in self.fields_dict.items()}
+        phases_repr = {k: list(v.keys()) for k, v in self.phases_dict.items()}
+        return (
+            f"Timestep(timestep={self.timestep}, "
+            f"fields={fields_repr}, "
+            f"phases={phases_repr})"
+        )
