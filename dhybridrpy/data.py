@@ -96,7 +96,7 @@ class Data:
         mesh = ax.pcolormesh(
             self.xdata, self.ydata, self.data.T, cmap=colormap, shading="auto", **kwargs
         )
-        ax.set_title(title if title else f"{self.name} data")
+        ax.set_title(title if title else f"{self.name} at timestep {self.timestep}")
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
         ax.set_xlim(xlim if xlim else self.xlimdata)
@@ -114,11 +114,11 @@ class Data:
 
         return ax
 
+    def _repr_text(self) -> str:
+        return f"file_path='{self.file_path}', name='{self.name}', timestep={self.timestep}"
+
     def __repr__(self):
-        return (
-            f"Data(file_path='{self.file_path}', name='{self.name}', "
-            f"timestep={self.timestep})"
-        )
+        return f"Data({self._repr_text()})"
 
 
 class Field(Data):
@@ -127,10 +127,8 @@ class Field(Data):
         self.origin = origin # e.g., "External"
 
     def __repr__(self):
-        return (
-            f"Field(file_path='{self.file_path}', name='{self.name}', "
-            f"timestep={self.timestep}, origin='{self.origin}')"
-        )
+        return f"Field({super()._repr_text()}, origin='{self.origin}')"
+
 
 class Phase(Data):
     def __init__(self, file_path: str, name: str, timestep: int, species: Union[int, str]):
@@ -138,7 +136,4 @@ class Phase(Data):
         self.species = species
 
     def __repr__(self):
-        return (
-            f"Phase(file_path='{self.file_path}', name='{self.name}', "
-            f"timestep={self.timestep}, species={repr(self.species)})"
-        )
+        return f"Phase({super()._repr_text()}, species={repr(self.species)})"
