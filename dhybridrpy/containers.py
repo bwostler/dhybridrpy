@@ -23,7 +23,7 @@ class PhaseContainer:
     def __getattr__(self, name: str) -> Callable:
         def get_phase(species: Union[int, str] = 1) -> Phase:
             if name not in self.phases_dict.get(species, {}):
-                raise AttributeError(f"Phase '{name}' for species '{species}' not found at this timestep.")
+                raise AttributeError(f"Phase '{name}' for species '{species}' not found at all requested timesteps.")
             return self.phases_dict[species][name]
 
         return get_phase
