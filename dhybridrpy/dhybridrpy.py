@@ -6,7 +6,6 @@ import f90nml
 
 from .containers import Timestep
 from .data import Field, Phase
-from typing import Union
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -142,6 +141,3 @@ class Dhybridrpy:
     @property
     def timesteps(self) -> np.array:
         return np.sort(list(self._timesteps_dict))
-
-    def timestepswhere(self, key: Union[str, int]) -> np.array:
-        pass

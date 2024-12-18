@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 
-from typing import Union
 from matplotlib.axes import Axes
 
 class Data:
@@ -71,18 +70,18 @@ class Data:
         return self._get_coordinate_limits("X2 AXIS")
 
     def plot(self, 
-            ax: Axes = None,
+            ax: Axes | None = None,
             dpi: int = 100,
-            title: str = None,
+            title: str | None = None,
             xlabel: str = r"$x$",
             ylabel: str = r"$y$",
-            xlim: tuple = None,
-            ylim: tuple = None,
+            xlim: tuple | None = None,
+            ylim: tuple | None = None,
             colormap: str = "viridis",
             show_colorbar: bool = True,
-            colorbar_label: str = None,
+            colorbar_label: str | None = None,
             save: bool = False,
-            save_name: str = None,
+            save_name: str | None = None,
             save_format: str = "jpg",
             show: bool = True,
             **kwargs
@@ -114,7 +113,7 @@ class Data:
 
         return ax
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         attrs = ", ".join(
             f"{attr}={value}" for attr, value in self.__dict__.items() if not attr.startswith("_")
         )
@@ -128,6 +127,6 @@ class Field(Data):
 
 
 class Phase(Data):
-    def __init__(self, file_path: str, name: str, timestep: int, species: Union[int, str]):
+    def __init__(self, file_path: str, name: str, timestep: int, species: int | str):
         super().__init__(file_path, name, timestep)
         self.species = species

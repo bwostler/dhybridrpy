@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Callable, Union
+from typing import Callable
 from .data import Field, Phase
 
 class FieldContainer:
@@ -21,7 +21,7 @@ class PhaseContainer:
         self.phases_dict = phases_dict
 
     def __getattr__(self, name: str) -> Callable:
-        def get_phase(species: Union[int, str] = 1) -> Phase:
+        def get_phase(species: int | str = 1) -> Phase:
             if name not in self.phases_dict.get(species, {}):
                 raise AttributeError(f"Phase '{name}' for species '{species}' not found at all requested timesteps.")
             return self.phases_dict[species][name]
@@ -48,7 +48,7 @@ class Timestep:
     def add_phase(self, phase: Phase) -> None:
         self.phases_dict[phase.species][phase.name] = phase
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         fields_repr = {k: list(v.keys()) for k, v in self.fields_dict.items()}
         phases_repr = {k: list(v.keys()) for k, v in self.phases_dict.items()}
         return (
