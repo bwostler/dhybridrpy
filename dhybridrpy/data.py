@@ -71,28 +71,25 @@ class Data:
         return self._get_coordinate_limits("X2 AXIS")
 
     def plot(self, 
-        ax: Axes = None,
-        title: str = None,
-        xlabel: str = r"$x$",
-        ylabel: str = r"$y$",
-        xlim: tuple = None,
-        ylim: tuple = None,
-        dpi: int = 100,
-        show_colorbar: bool = True,
-        colormap: str = "viridis",
-        colorbar_label: str = None,
-        save: bool = False,
-        save_name: str = None,
-        save_filetype: str = "png",
-        show: bool = True,
-        **kwargs
-    ) -> Axes:
+            ax: Axes = None,
+            dpi: int = 100,
+            title: str = None,
+            xlabel: str = r"$x$",
+            ylabel: str = r"$y$",
+            xlim: tuple = None,
+            ylim: tuple = None,
+            colormap: str = "viridis",
+            show_colorbar: bool = True,
+            colorbar_label: str = None,
+            save: bool = False,
+            save_name: str = None,
+            save_format: str = "jpg",
+            show: bool = True,
+            **kwargs
+        ) -> Axes:
 
         if ax is None:
             fig, ax = plt.subplots(figsize=(8, 6), dpi=dpi)
-        # else:
-        #     # Since axes are by default mutable, ensure that it isn't modified.
-        #     ax = copy.deepcopy(ax)
 
         X, Y = np.meshgrid(self.xdata, self.ydata, indexing='ij')
         mesh = ax.pcolormesh(
@@ -110,18 +107,18 @@ class Data:
         if save:
             if not save_name:
                 save_name = f"{self.name}_timestep{self.timestep}"
-            plt.savefig(f"{save_name}.{save_filetype}", dpi=dpi)
+            plt.savefig(f"{save_name}.{save_format}", dpi=dpi)
 
         if show:
             plt.show()
 
         return ax
 
-    def _repr_text(self) -> str:
-        return f"file_path={self.file_path}, name={self.name}, timestep={self.timestep}"
-
     def __repr__(self):
-        return f"Data({self._repr_text()})"
+        attrs = ", ".join(
+            f"{attr}={value}" for attr, value in self.__dict__.items() if not attr.startswith("_")
+        )
+        return f"{self.__class__.__name__}({attrs})"
 
 
 class Field(Data):
@@ -129,14 +126,8 @@ class Field(Data):
         super().__init__(file_path, name, timestep)
         self.origin = origin # e.g., "External"
 
-    def __repr__(self):
-        return f"Field({super()._repr_text()}, origin={self.origin})"
-
 
 class Phase(Data):
     def __init__(self, file_path: str, name: str, timestep: int, species: Union[int, str]):
         super().__init__(file_path, name, timestep)
         self.species = species
-
-    def __repr__(self):
-        return f"Phase({super()._repr_text()}, species={self.species})"
