@@ -27,7 +27,9 @@ class Data:
 
             if self.lazy_evaluate:
                 delayed_helper = delayed(coordinate_limits_helper)()
-                self._data_dict[axis_name] = da.from_delayed(delayed_helper, shape=(2,), dtype=np.float64)
+                self._data_dict[axis_name] = da.from_delayed(
+                    delayed_helper, shape=(2,), dtype=np.float64
+                )
             else:
                 self._data_dict[axis_name] = coordinate_limits_helper()
 
@@ -113,15 +115,32 @@ class Data:
         if ax is None:
             fig, ax = plt.subplots(figsize=(8, 6), dpi=dpi)
 
-        X, Y = np.meshgrid(self.xdata, self.ydata, indexing="ij")
+        if self.lazy_evaluate:
+            data, xdata, ydata, xlimdata, ylimdata = (
+                self.data.compute(),
+                self.xdata.compute(), 
+                self.ydata.compute(), 
+                self.xlimdata.compute(), 
+                self.ylimdata.compute()
+            )
+        else:
+            data, xdata, ydata, xlimdata, ylimdata = (
+                self.data, 
+                self.xdata, 
+                self.ydata, 
+                self.xlimdata, 
+                self.ylimdata
+            )
+
+        X, Y = np.meshgrid(xdata, ydata, indexing="ij")
         mesh = ax.pcolormesh(
-            X, Y, self.data, cmap=colormap, shading="auto", **kwargs
+            X, Y, data, cmap=colormap, shading="auto", **kwargs
         )
         ax.set_title(title if title else f"{self.name} at timestep {self.timestep}")
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
-        ax.set_xlim(xlim if xlim else self.xlimdata)
-        ax.set_ylim(ylim if ylim else self.ylimdata)
+        ax.set_xlim(xlim if xlim else xlimdata)
+        ax.set_ylim(ylim if ylim else ylimdata)
         if show_colorbar:
             cbar = plt.colorbar(mesh, ax=ax)
             cbar.set_label(colorbar_label if colorbar_label else f"{self.name}")
