@@ -13,3 +13,4 @@ dependencies = [
     "f90nml",
     "pre-commit"
 ]
+license = {file = "LICENSE.txt"}
