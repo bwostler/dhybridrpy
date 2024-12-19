@@ -26,7 +26,7 @@ class Data:
                     return file["AXIS"][axis_name][:]
 
             if self.lazy_evaluate:
-                self._data_dict[axis_name] = delayed(coordinate_limits_helper)()
+                self._data_dict[axis_name] = da.from_array(coordinate_limits_helper(), chunks="auto")
             else:
                 self._data_dict[axis_name] = coordinate_limits_helper()
 
@@ -63,7 +63,7 @@ class Data:
                     return file["DATA"][:].T
 
             if self.lazy_evaluate:
-                self._data_dict[self.name] = delayed(data_helper)()
+                self._data_dict[self.name] = da.from_array(data_helper(), chunks="auto")
             else:
                 self._data_dict[self.name] = data_helper()
         return self._data_dict[self.name]
