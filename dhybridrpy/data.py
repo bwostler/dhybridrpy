@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.collections import QuadMesh
 from typing import Tuple
-from dask import delayed
+from dask.delayed import delayed
 
 class Data:
     def __init__(self, file_path: str, name: str, timestep: int, lazy_evaluate: bool):
@@ -26,7 +26,8 @@ class Data:
                     return file["AXIS"][axis_name][:]
 
             if self.lazy_evaluate:
-                self._data_dict[axis_name] = da.from_array(coordinate_limits_helper(), chunks="auto")
+                delayed_helper = delayed(coordinate_limits_helper)()
+                self._data_dict[axis_name] = da.from_delayed(delayed_helper, shape=(2,), dtype=np.float64)
             else:
                 self._data_dict[axis_name] = coordinate_limits_helper()
 
@@ -58,16 +59,18 @@ class Data:
         if self.name not in self._data_dict:
 
             def data_helper() -> np.ndarray:
-                """Load the data from the file."""
                 with h5py.File(self.file_path, "r") as file:
                     return file["DATA"][:].T
 
             if self.lazy_evaluate:
-                self._data_dict[self.name] = da.from_array(data_helper(), chunks="auto")
+                delayed_helper = delayed(data_helper)()
+                self._data_dict[self.name] = da.from_delayed(
+                    delayed_helper, shape=self._get_data_shape(), dtype=np.float64
+                )
             else:
                 self._data_dict[self.name] = data_helper()
+
         return self._data_dict[self.name]
-   
 
     @property
     def xdata(self) -> np.ndarray | da.Array:
