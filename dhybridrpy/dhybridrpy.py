@@ -75,9 +75,10 @@ class InputFileParser:
 
 
 class Dhybridrpy:
-    def __init__(self, input_file: str, output_path: str):
+    def __init__(self, input_file: str, output_path: str, lazy_evaluate: bool = False):
         self.input_file = input_file
         self.output_path = output_path
+        self.lazy_evaluate = lazy_evaluate
         self._timesteps_dict = {}
         self._field_mapping = {
             "Magnetic": "B",
@@ -112,7 +113,7 @@ class Dhybridrpy:
         name = f"{prefix}{component}"
         if timestep not in self._timesteps_dict:
             self._timesteps_dict[timestep] = Timestep(timestep)
-        field = Field(os.path.join(dirpath, filename), name, timestep, origin)
+        field = Field(os.path.join(dirpath, filename), name, timestep, self.lazy_evaluate, origin)
         self._timesteps_dict[timestep].add_field(field)
 
     def _process_phase(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
@@ -121,7 +122,7 @@ class Dhybridrpy:
         species = int(re.search(r'\d+', species_str).group()) if species_str != "Total" else species_str
         if timestep not in self._timesteps_dict:
             self._timesteps_dict[timestep] = Timestep(timestep)
-        phase = Phase(os.path.join(dirpath, filename), name, timestep, species)
+        phase = Phase(os.path.join(dirpath, filename), name, timestep, self.lazy_evaluate, species)
         self._timesteps_dict[timestep].add_phase(phase)
 
     def _traverse_directory(self) -> None:
