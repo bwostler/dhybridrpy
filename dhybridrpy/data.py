@@ -9,11 +9,11 @@ from typing import Tuple
 from dask.delayed import delayed
 
 class Data:
-    def __init__(self, file_path: str, name: str, timestep: int, lazy_evaluate: bool):
+    def __init__(self, file_path: str, name: str, timestep: int, lazy: bool):
         self.file_path = file_path
         self.name = name
         self.timestep = timestep
-        self.lazy_evaluate = lazy_evaluate
+        self.lazy = lazy
         self._data_dict = {}
         self._data_shape = None
 
@@ -25,7 +25,7 @@ class Data:
                 with h5py.File(self.file_path, "r") as file:
                     return file["AXIS"][axis_name][:]
 
-            if self.lazy_evaluate:
+            if self.lazy:
                 delayed_helper = delayed(coordinate_limits_helper)()
                 self._data_dict[axis_name] = da.from_delayed(
                     delayed_helper, shape=(2,), dtype=np.float64
@@ -41,7 +41,7 @@ class Data:
         if key not in self._data_dict:
             axis_limits = self._get_coordinate_limits(axis_name)
             delta = (axis_limits[1] - axis_limits[0]) / size
-            if self.lazy_evaluate:
+            if self.lazy:
                 grid = da.arange(size, chunks="auto")
             else:
                 grid = np.arange(size)
@@ -64,7 +64,7 @@ class Data:
                 with h5py.File(self.file_path, "r") as file:
                     return file["DATA"][:].T
 
-            if self.lazy_evaluate:
+            if self.lazy:
                 delayed_helper = delayed(data_helper)()
                 self._data_dict[self.name] = da.from_delayed(
                     delayed_helper, shape=self._get_data_shape(), dtype=np.float64
@@ -115,7 +115,7 @@ class Data:
         if ax is None:
             fig, ax = plt.subplots(figsize=(8, 6), dpi=dpi)
 
-        if self.lazy_evaluate:
+        if self.lazy:
             data, xdata, ydata, xlimdata, ylimdata = (
                 self.data.compute(),
                 self.xdata.compute(), 
@@ -163,12 +163,12 @@ class Data:
 
 
 class Field(Data):
-    def __init__(self, file_path: str, name: str, timestep: int, lazy_evaluate: bool, origin: str):
-        super().__init__(file_path, name, timestep, lazy_evaluate)
+    def __init__(self, file_path: str, name: str, timestep: int, lazy: bool, origin: str):
+        super().__init__(file_path, name, timestep, lazy)
         self.origin = origin # e.g., "External"
 
 
 class Phase(Data):
-    def __init__(self, file_path: str, name: str, timestep: int, lazy_evaluate: bool, species: int | str):
-        super().__init__(file_path, name, timestep, lazy_evaluate)
+    def __init__(self, file_path: str, name: str, timestep: int, lazy: bool, species: int | str):
+        super().__init__(file_path, name, timestep, lazy)
         self.species = species
