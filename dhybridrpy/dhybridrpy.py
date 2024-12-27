@@ -28,7 +28,6 @@ class InputFileParser:
             logger.error(f"Failed to parse input file: {e}")
             raise
         finally:
-            # Ensure the temporary file is cleaned up
             if os.path.exists(tmp_input_file):
                 os.remove(tmp_input_file)
 
@@ -119,7 +118,7 @@ class Dhybridrpy:
     def _process_phase(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
         name = folder_components[-2]
         species_str = folder_components[-1]
-        species = int(re.search(r'\d+', species_str).group()) if species_str != "Total" else species_str
+        species = int(re.search(r'\d+', species_str).group()) if species_str.capitalize() != "Total" else species_str
         if timestep not in self._timesteps_dict:
             self._timesteps_dict[timestep] = Timestep(timestep)
         phase = Phase(os.path.join(dirpath, filename), name, timestep, self.lazy, species)
@@ -140,5 +139,5 @@ class Dhybridrpy:
         raise ValueError(f"Timestep {ts} not found")
 
     @property
-    def timesteps(self) -> np.array:
+    def timesteps(self) -> np.ndarray:
         return np.sort(list(self._timesteps_dict))

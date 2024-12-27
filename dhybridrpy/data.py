@@ -18,7 +18,6 @@ class Data:
         self._data_shape = None
 
     def _get_coordinate_limits(self, axis_name: str) -> np.ndarray | da.Array:
-        """Retrieve a specific axis from the file."""
         if axis_name not in self._data_dict:
 
             def coordinate_limits_helper() -> np.ndarray:
@@ -36,15 +35,11 @@ class Data:
         return self._data_dict[axis_name]
 
     def _compute_coordinates(self, axis_name: str, size: int) -> np.ndarray | da.Array:
-        """Compute coordinates for a given axis."""
         key = f"{axis_name} coords"
         if key not in self._data_dict:
             axis_limits = self._get_coordinate_limits(axis_name)
             delta = (axis_limits[1] - axis_limits[0]) / size
-            if self.lazy:
-                grid = da.arange(size, chunks="auto")
-            else:
-                grid = np.arange(size)
+            grid = da.arange(size, chunks="auto") if self.lazy else np.arange(size)
             self._data_dict[key] = delta*grid + (delta/2) + axis_limits[0]
         return self._data_dict[key]
     
@@ -57,7 +52,6 @@ class Data:
 
     @property
     def data(self) -> np.ndarray | da.Array:
-        """Retrieve the data values."""
         if self.name not in self._data_dict:
 
             def data_helper() -> np.ndarray:
@@ -105,10 +99,6 @@ class Data:
         colormap: str = "viridis",
         show_colorbar: bool = True,
         colorbar_label: str | None = None,
-        # save: bool = False,
-        # save_name: str | None = None,
-        # save_format: str = "jpg",
-        # show: bool = True,
         **kwargs
     ) -> Tuple[Axes, QuadMesh]:
 
@@ -144,14 +134,6 @@ class Data:
         if show_colorbar:
             cbar = plt.colorbar(mesh, ax=ax)
             cbar.set_label(colorbar_label if colorbar_label else f"{self.name}")
-
-        # if save:
-        #     if not save_name:
-        #         save_name = f"{self.name}_timestep{self.timestep}"
-        #     plt.savefig(f"{save_name}.{save_format}", dpi=dpi)
-
-        # if show:
-        #     plt.show()
 
         return ax, mesh
 
