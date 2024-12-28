@@ -102,6 +102,9 @@ class Data:
         **kwargs
     ) -> Tuple[Axes, QuadMesh]:
 
+        if len(self._get_data_shape()) != 2:
+            raise NotImplementedError("Plotting is currently restricted to 2D data.")
+
         if ax is None:
             fig, ax = plt.subplots(figsize=(8, 6), dpi=dpi)
 

@@ -6,6 +6,7 @@ import f90nml
 
 from .containers import Timestep
 from .data import Field, Phase
+from concurrent.futures import ThreadPoolExecutor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -127,12 +128,17 @@ class Dhybridrpy:
 
     def _traverse_directory(self) -> None:
         timestep_pattern = re.compile(r"_(\d+)\.h5$")
+        file_tasks = []
+
         for dirpath, _, filenames in os.walk(self.output_path):
             for filename in filenames:
                 match = timestep_pattern.search(filename)
                 if match:
                     timestep = int(match.group(1))
-                    self._process_file(dirpath, filename, timestep)
+                    file_tasks.append((dirpath, filename, timestep))
+
+        with ThreadPoolExecutor() as executor:
+            executor.map(lambda task: self._process_file(*task), file_tasks)
 
     def timestep(self, ts: int) -> Timestep:
         if ts in self._timesteps_dict:
