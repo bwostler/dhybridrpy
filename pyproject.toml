@@ -3,7 +3,7 @@ name = "dhybridrpy"
 version = "1"
 description = "Easily plot data from dHybridR."
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 dependencies = [
     "h5py>=3.12.1",
     "matplotlib>=3.9.2",

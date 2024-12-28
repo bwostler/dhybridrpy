@@ -45,7 +45,7 @@ class Data:
     
     def _get_data_shape(self) -> tuple:
         """Retrieve the shape of the data without loading it."""
-        if not self._data_shape:
+        if self._data_shape is None:
             with h5py.File(self.file_path, "r") as file:
                 self._data_shape = file["DATA"].shape
         return self._data_shape

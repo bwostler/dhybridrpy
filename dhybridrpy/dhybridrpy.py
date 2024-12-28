@@ -79,6 +79,7 @@ class Dhybridrpy:
         self.output_path = output_path
         self.lazy = lazy
         self._timesteps_dict = {}
+        self._sorted_timesteps = None
         self._field_mapping = {
             "Magnetic": "B",
             "Electric": "E",
@@ -118,7 +119,7 @@ class Dhybridrpy:
     def _process_phase(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
         name = folder_components[-2]
         species_str = folder_components[-1]
-        species = int(re.search(r'\d+', species_str).group()) if species_str.capitalize() != "Total" else species_str
+        species = int(re.search(r'\d+', species_str).group()) if species_str != "Total" else species_str
         if timestep not in self._timesteps_dict:
             self._timesteps_dict[timestep] = Timestep(timestep)
         phase = Phase(os.path.join(dirpath, filename), name, timestep, self.lazy, species)
@@ -138,6 +139,9 @@ class Dhybridrpy:
             return self._timesteps_dict[ts]
         raise ValueError(f"Timestep {ts} not found")
 
-    @property
-    def timesteps(self) -> np.ndarray:
-        return np.sort(list(self._timesteps_dict))
+    def timesteps(self, include_zero: bool = False) -> np.ndarray:
+        if self._sorted_timesteps is None:
+            self._sorted_timesteps = np.sort(list(self._timesteps_dict))
+        if not include_zero and len(self._sorted_timesteps) > 0 and self._sorted_timesteps[0] == 0:
+            return self._sorted_timesteps[1:]
+        return self._sorted_timesteps
