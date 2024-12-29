@@ -84,8 +84,10 @@ class Dhybridrpy:
         self._field_mapping = {
             "Magnetic": "B",
             "Electric": "E",
-            "FluidVel": "V",
             "CurrentDens": "J"
+        }
+        self._phase_mapping = {
+            "FluidVel": "V"
         }
         self._traverse_directory()
         self.inputs = InputFileParser(input_file).input_dict
@@ -118,8 +120,25 @@ class Dhybridrpy:
         self._timesteps_dict[timestep].add_field(field)
 
     def _process_phase(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
-        name = folder_components[-2]
-        species_str = folder_components[-1]
+
+        if "pres" in filename:
+            logger.warning(f"Pressure is currently unimplemented. Skipping {filename}")
+            return
+
+        name = folder_components[1]
+        if name == "FluidVel":
+            species_str = folder_components[-2]
+            component = folder_components[-1]
+
+            prefix = self._phase_mapping.get(name)
+            if not prefix:
+                logger.warning(f"Unknown name '{name}'. Skipping {filename}")
+                return
+
+            name = f"{prefix}{component}"
+        else:
+            species_str = folder_components[-1]
+        
         species = int(re.search(r'\d+', species_str).group()) if species_str != "Total" else species_str
         if timestep not in self._timesteps_dict:
             self._timesteps_dict[timestep] = Timestep(timestep)
@@ -128,26 +147,28 @@ class Dhybridrpy:
 
     def _traverse_directory(self) -> None:
         timestep_pattern = re.compile(r"_(\d+)\.h5$")
-        file_tasks = []
+        file_params = []
 
         for dirpath, _, filenames in os.walk(self.output_path):
             for filename in filenames:
                 match = timestep_pattern.search(filename)
                 if match:
                     timestep = int(match.group(1))
-                    file_tasks.append((dirpath, filename, timestep))
+                    file_params.append((dirpath, filename, timestep))
 
+        # "list" below allows errors in individual threads to properly propagate up
+        # to the main thread instead of being suppressed
         with ThreadPoolExecutor() as executor:
-            executor.map(lambda task: self._process_file(*task), file_tasks)
+            list(executor.map(lambda params: self._process_file(*params), file_params))
 
     def timestep(self, ts: int) -> Timestep:
         if ts in self._timesteps_dict:
             return self._timesteps_dict[ts]
         raise ValueError(f"Timestep {ts} not found")
 
-    def timesteps(self, include_zero: bool = False) -> np.ndarray:
+    def timesteps(self, exclude_zero: bool = True) -> np.ndarray:
         if self._sorted_timesteps is None:
             self._sorted_timesteps = np.sort(list(self._timesteps_dict))
-        if not include_zero and len(self._sorted_timesteps) > 0 and self._sorted_timesteps[0] == 0:
+        if exclude_zero and len(self._sorted_timesteps) > 0 and self._sorted_timesteps[0] == 0:
             return self._sorted_timesteps[1:]
         return self._sorted_timesteps

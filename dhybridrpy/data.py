@@ -52,6 +52,7 @@ class Data:
 
     @property
     def data(self) -> np.ndarray | da.Array:
+        """Retrieves the field / phase values. Rows correspond to x-values, columns correspond to y-values."""
         if self.name not in self._data_dict:
 
             def data_helper() -> np.ndarray:
@@ -71,12 +72,12 @@ class Data:
     @property
     def xdata(self) -> np.ndarray | da.Array:
         """Retrieve x-coordinates."""
-        return self._compute_coordinates("X1 AXIS", self._get_data_shape()[0])
+        return self._compute_coordinates("X2 AXIS", self._get_data_shape()[1])
 
     @property
     def ydata(self) -> np.ndarray | da.Array:
         """Retrieve y-coordinates."""
-        return self._compute_coordinates("X2 AXIS", self._get_data_shape()[1])
+        return self._compute_coordinates("X1 AXIS", self._get_data_shape()[0])
 
     @property
     def xlimdata(self) -> np.ndarray | da.Array:
