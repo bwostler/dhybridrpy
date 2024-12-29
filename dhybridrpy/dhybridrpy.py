@@ -6,6 +6,7 @@ import f90nml
 
 from .containers import Timestep
 from .data import Field, Phase
+from f90nml import Namelist
 from concurrent.futures import ThreadPoolExecutor
 
 logging.basicConfig(level=logging.INFO)
@@ -16,7 +17,7 @@ class InputFileParser:
         self.input_file = input_file
         self.input_dict = self._parse_input_file()
 
-    def _parse_input_file(self) -> dict:
+    def _parse_input_file(self) -> Namelist:
         """
         Parses the input file and returns its content as a subclass of dictionary.
         Temporary files are managed and removed automatically.
@@ -75,22 +76,31 @@ class InputFileParser:
 
 
 class Dhybridrpy:
+
+    _field_mapping = {
+        "Magnetic": "B",
+        "Electric": "E",
+        "CurrentDens": "J"
+    }
+    _phase_mapping = {
+        "FluidVel": "V"
+    }
+
     def __init__(self, input_file: str, output_path: str, lazy: bool = False):
         self.input_file = input_file
         self.output_path = output_path
         self.lazy = lazy
         self._timesteps_dict = {}
         self._sorted_timesteps = None
-        self._field_mapping = {
-            "Magnetic": "B",
-            "Electric": "E",
-            "CurrentDens": "J"
-        }
-        self._phase_mapping = {
-            "FluidVel": "V"
-        }
+        self._validate_paths()
         self._traverse_directory()
         self.inputs = InputFileParser(input_file).input_dict
+
+    def _validate_paths(self):
+        if not os.path.exists(self.input_file):
+            raise FileNotFoundError(f"Input file {self.input_file} does not exist")
+        if not os.path.isdir(self.output_path):
+            raise NotADirectoryError(f"Output path {self.output_path} is not a directory")
 
     def _process_file(self, dirpath: str, filename: str, timestep: int) -> None:
         folder_components = os.path.relpath(dirpath, self.output_path).split(os.sep)
@@ -129,12 +139,10 @@ class Dhybridrpy:
         if name == "FluidVel":
             species_str = folder_components[-2]
             component = folder_components[-1]
-
             prefix = self._phase_mapping.get(name)
             if not prefix:
                 logger.warning(f"Unknown name '{name}'. Skipping {filename}")
                 return
-
             name = f"{prefix}{component}"
         else:
             species_str = folder_components[-1]
@@ -156,10 +164,11 @@ class Dhybridrpy:
                     timestep = int(match.group(1))
                     file_params.append((dirpath, filename, timestep))
 
-        # "list" below allows errors in individual threads to properly propagate up
-        # to the main thread instead of being suppressed
+        # for loop with "pass" below is there to allow errors in individual threads 
+        # to properly propagate up to the main thread instead of being suppressed. 
         with ThreadPoolExecutor() as executor:
-            list(executor.map(lambda params: self._process_file(*params), file_params))
+            for _ in executor.map(lambda params: self._process_file(*params), file_params):
+                pass
 
     def timestep(self, ts: int) -> Timestep:
         if ts in self._timesteps_dict:

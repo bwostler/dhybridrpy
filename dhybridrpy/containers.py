@@ -18,7 +18,7 @@ class FieldContainer:
 
     def __repr__(self) -> str:
         field_summary = {
-            f"origin = {origin}": list(fields.keys()) for origin, fields in self.fields_dict.items()
+            f"origin = {origin}": sorted(fields.keys()) for origin, fields in sorted(self.fields_dict.items())
         }
         return f"Fields at timestep {self.timestep} = {field_summary}"
 
@@ -38,7 +38,7 @@ class PhaseContainer:
 
     def __repr__(self) -> str:
         phase_summary = {
-            f"species = {species}": list(phases.keys()) for species, phases in self.phases_dict.items()
+            f"species = {species}": sorted(phases.keys()) for species, phases in self.phases_dict.items()
         }
         return f"Phases at timestep {self.timestep} = {phase_summary}"
 
@@ -63,10 +63,10 @@ class Timestep:
         self.phases_dict[phase.species][phase.name] = phase
 
     def __repr__(self) -> str:
-        fields_repr = {k: list(v.keys()) for k, v in self.fields_dict.items()}
-        phases_repr = {k: list(v.keys()) for k, v in self.phases_dict.items()}
+        fields_summary = {key: list(value.keys()) for key, value in self.fields_dict.items()}
+        phases_summary = {key: list(value.keys()) for key, value in self.phases_dict.items()}
         return (
-            f"Timestep(timestep={self.timestep}, "
-            f"fields={fields_repr}, "
-            f"phases={phases_repr})"
+            f"Timestep(timestep = {self.timestep}, "
+            f"fields = {fields_summary}, "
+            f"phases = {phases_summary})"
         )
