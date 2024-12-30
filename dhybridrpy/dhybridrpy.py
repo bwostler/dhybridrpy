@@ -131,11 +131,9 @@ class Dhybridrpy:
 
     def _process_phase(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
 
-        if "pres" in filename:
-            logger.warning(f"Pressure is currently unimplemented. Skipping {filename}")
-            return
-
         name = folder_components[1]
+
+        # Manage bulk velocity and pressure special cases
         if name == "FluidVel":
             species_str = folder_components[-2]
             component = folder_components[-1]
@@ -146,6 +144,9 @@ class Dhybridrpy:
             name = f"{prefix}{component}"
         else:
             species_str = folder_components[-1]
+
+        if name == "x3x2x1" and "pres" in filename:
+            name = "P"
         
         species = int(re.search(r'\d+', species_str).group()) if species_str != "Total" else species_str
         if timestep not in self._timesteps_dict:
