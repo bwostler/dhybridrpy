@@ -47,7 +47,8 @@ class Data:
         """Retrieve the shape of the data without loading it."""
         if self._data_shape is None:
             with h5py.File(self.file_path, "r") as file:
-                self._data_shape = file["DATA"].shape
+                # Reverse the data shape to be consistent with transpose in data @property
+                self._data_shape = file["DATA"].shape[::-1]
         return self._data_shape
 
     @property
@@ -72,12 +73,12 @@ class Data:
     @property
     def xdata(self) -> np.ndarray | da.Array:
         """Retrieve x-coordinates."""
-        return self._compute_coordinates("X2 AXIS", self._get_data_shape()[1])
+        return self._compute_coordinates("X1 AXIS", self._get_data_shape()[0])
 
     @property
     def ydata(self) -> np.ndarray | da.Array:
         """Retrieve y-coordinates."""
-        return self._compute_coordinates("X1 AXIS", self._get_data_shape()[0])
+        return self._compute_coordinates("X2 AXIS", self._get_data_shape()[1])
 
     @property
     def xlimdata(self) -> np.ndarray | da.Array:
