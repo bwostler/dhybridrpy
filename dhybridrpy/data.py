@@ -161,19 +161,33 @@ class Phase(Data):
         self.species = species
 
 class Raw:
-    def __init__(self, file_path: str, name: str, timestep: int, species: int):
+    def __init__(self, file_path: str, name: str, timestep: int, lazy: bool, species: int):
         self.file_path = file_path
         self.name = name
         self.timestep = timestep
         self.species = species
+        self.lazy = lazy
+        self._data_dict = {}
 
     @property
-    def data(self) -> dict:
-        with h5py.File(self.file_path, "r") as file:
-            return {
-                key: file[key][:] for key in file.keys()
-            }
+    def dict(self) -> dict:
+        if not self._data_dict:
+            with h5py.File(self.file_path, "r") as file:
 
+                def data_helper():
+                    with h5py.File(self.file_path, "r") as f:
+                        return f[key][:]
+
+                for key in file.keys():
+                    if self.lazy:
+                        shape = file[key].shape
+                        dtype = file[key].dtype
+                        delayed_helper = delayed(data_helper)()
+                        self._data_dict[key] = da.from_delayed(delayed_helper, shape=shape, dtype=dtype)
+                    else:
+                        self._data_dict[key] = file[key][:]
+        return self._data_dict
+    
     def __repr__(self) -> str:
         attrs = ", ".join(
             f"{attr}={value}" for attr, value in self.__dict__.items() if not attr.startswith("_")

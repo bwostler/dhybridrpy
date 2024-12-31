@@ -159,12 +159,12 @@ class Dhybridrpy:
         self._timesteps_dict[timestep].add_phase(phase)
 
     def _process_raw(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
-        name = folder_components[0]
+        name = "raw"
         species_str = folder_components[-1]
         species = int(re.search(r'\d+', species_str).group())
         if timestep not in self._timesteps_dict:
             self._timesteps_dict[timestep] = Timestep(timestep)
-        raw = Raw(os.path.join(dirpath, filename), name, timestep, species)
+        raw = Raw(os.path.join(dirpath, filename), name, timestep, self.lazy, species)
         self._timesteps_dict[timestep].add_raw(raw)
 
     def _traverse_directory(self) -> None:
