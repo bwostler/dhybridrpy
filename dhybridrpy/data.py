@@ -160,6 +160,7 @@ class Phase(Data):
         super().__init__(file_path, name, timestep, lazy)
         self.species = species
 
+
 class Raw:
     def __init__(self, file_path: str, name: str, timestep: int, lazy: bool, species: int):
         self.file_path = file_path
