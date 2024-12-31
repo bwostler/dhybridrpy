@@ -77,12 +77,12 @@ class InputFileParser:
 
 class Dhybridrpy:
 
-    _field_mapping = {
+    _FIELD_MAPPING = {
         "Magnetic": "B",
         "Electric": "E",
         "CurrentDens": "J"
     }
-    _phase_mapping = {
+    _PHASE_MAPPING = {
         "FluidVel": "V"
     }
 
@@ -110,6 +110,8 @@ class Dhybridrpy:
             self._process_field(dirpath, filename, timestep, folder_components)
         elif output_type == "Phase":
             self._process_phase(dirpath, filename, timestep, folder_components)
+        else:
+            logger.warning(f"Unknown output type '{output_type}' for {filename}. File not processed")
 
     def _process_field(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
         category = folder_components[1]
@@ -118,7 +120,7 @@ class Dhybridrpy:
         origin = folder_components[-2]
         component = folder_components[-1]
 
-        prefix = self._field_mapping.get(category)
+        prefix = self._FIELD_MAPPING.get(category)
         if not prefix:
             logger.warning(f"Unknown category '{category}'. Skipping {filename}")
             return
@@ -137,7 +139,7 @@ class Dhybridrpy:
         if name == "FluidVel":
             species_str = folder_components[-2]
             component = folder_components[-1]
-            prefix = self._phase_mapping.get(name)
+            prefix = self._PHASE_MAPPING.get(name)
             if not prefix:
                 logger.warning(f"Unknown name '{name}'. Skipping {filename}")
                 return
@@ -156,20 +158,12 @@ class Dhybridrpy:
 
     def _traverse_directory(self) -> None:
         timestep_pattern = re.compile(r"_(\d+)\.h5$")
-        file_params = []
-
         for dirpath, _, filenames in os.walk(self.output_path):
             for filename in filenames:
                 match = timestep_pattern.search(filename)
                 if match:
                     timestep = int(match.group(1))
-                    file_params.append((dirpath, filename, timestep))
-
-        # for loop with "pass" below is there to allow errors in individual threads 
-        # to properly propagate up to the main thread instead of being suppressed. 
-        with ThreadPoolExecutor() as executor:
-            for _ in executor.map(lambda params: self._process_file(*params), file_params):
-                pass
+                    self._process_file(dirpath, filename, timestep)
 
     def timestep(self, ts: int) -> Timestep:
         if ts in self._timesteps_dict:
