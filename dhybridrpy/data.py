@@ -159,3 +159,23 @@ class Phase(Data):
     def __init__(self, file_path: str, name: str, timestep: int, lazy: bool, species: int | str):
         super().__init__(file_path, name, timestep, lazy)
         self.species = species
+
+class Raw:
+    def __init__(self, file_path: str, name: str, timestep: int, species: int):
+        self.file_path = file_path
+        self.name = name
+        self.timestep = timestep
+        self.species = species
+
+    @property
+    def data(self) -> dict:
+        with h5py.File(self.file_path, "r") as file:
+            return {
+                key: file[key][:] for key in file.keys()
+            }
+
+    def __repr__(self) -> str:
+        attrs = ", ".join(
+            f"{attr}={value}" for attr, value in self.__dict__.items() if not attr.startswith("_")
+        )
+        return f"{self.__class__.__name__}({attrs})"

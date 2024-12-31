@@ -5,7 +5,7 @@ import numpy as np
 import f90nml
 
 from .containers import Timestep
-from .data import Field, Phase
+from .data import Field, Phase, Raw
 from f90nml import Namelist
 from concurrent.futures import ThreadPoolExecutor
 
@@ -110,6 +110,8 @@ class Dhybridrpy:
             self._process_field(dirpath, filename, timestep, folder_components)
         elif output_type == "Phase":
             self._process_phase(dirpath, filename, timestep, folder_components)
+        elif output_type == "Raw":
+            self._process_raw(dirpath, filename, timestep, folder_components)
         else:
             logger.warning(f"Unknown output type '{output_type}' for {filename}. File not processed")
 
@@ -155,6 +157,15 @@ class Dhybridrpy:
             self._timesteps_dict[timestep] = Timestep(timestep)
         phase = Phase(os.path.join(dirpath, filename), name, timestep, self.lazy, species)
         self._timesteps_dict[timestep].add_phase(phase)
+
+    def _process_raw(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
+        name = folder_components[0]
+        species_str = folder_components[-1]
+        species = int(re.search(r'\d+', species_str).group())
+        if timestep not in self._timesteps_dict:
+            self._timesteps_dict[timestep] = Timestep(timestep)
+        raw = Raw(os.path.join(dirpath, filename), name, timestep, species)
+        self._timesteps_dict[timestep].add_raw(raw)
 
     def _traverse_directory(self) -> None:
         timestep_pattern = re.compile(r"_(\d+)\.h5$")
