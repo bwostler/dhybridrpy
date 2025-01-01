@@ -8,7 +8,6 @@ import io
 from .containers import Timestep
 from .data import Field, Phase, Raw
 from f90nml import Namelist
-from concurrent.futures import ThreadPoolExecutor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
