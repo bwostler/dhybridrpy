@@ -3,6 +3,7 @@ import re
 import logging
 import numpy as np
 import f90nml
+import io
 
 from .containers import Timestep
 from .data import Field, Phase, Raw
@@ -20,23 +21,17 @@ class InputFileParser:
     def _parse_input_file(self) -> Namelist:
         """
         Parses the input file and returns its content as a subclass of dictionary.
-        Temporary files are managed and removed automatically.
         """
-        tmp_input_file = f"{self.input_file}.tmp"
         try:
-            self._create_nml_input_file(tmp_input_file)
-            return f90nml.read(tmp_input_file)
+            nml_content = self._create_nml_input_str()
+            return f90nml.read(io.StringIO(nml_content))
         except Exception as e:
             logger.error(f"Failed to parse input file: {e}")
             raise
-        finally:
-            if os.path.exists(tmp_input_file):
-                os.remove(tmp_input_file)
 
-    def _create_nml_input_file(self, output_file: str) -> None:
+    def _create_nml_input_str(self) -> str:
         """
-        Converts the input file content to a Fortran namelist format
-        and writes it to the specified output filename.
+        Converts the input file content to a Fortran namelist format.
         """
         with open(self.input_file, 'r') as infile:
             content = infile.read()
@@ -54,9 +49,7 @@ class InputFileParser:
             namelist_content.extend(self._process_parameters(parameters))
             namelist_content.append("/")  # End the namelist section
 
-        # Write the processed content to the output file
-        with open(output_file, 'w') as outfile:
-            outfile.write("\n".join(namelist_content))
+        return "\n".join(namelist_content)
 
     def _process_parameters(self, parameters: str) -> list:
         """

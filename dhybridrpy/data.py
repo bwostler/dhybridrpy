@@ -8,7 +8,7 @@ from matplotlib.collections import QuadMesh
 from typing import Tuple
 from dask.delayed import delayed
 
-class BaseAttributes:
+class BaseProperties:
     def __init__(self, file_path: str, name: str, timestep: int, lazy: bool):
         self.file_path = file_path
         self.name = name
@@ -23,26 +23,15 @@ class BaseAttributes:
         return f"{self.__class__.__name__}({attrs})"
 
 
-class Data(BaseAttributes):
+class Data(BaseProperties):
     def __init__(self, file_path: str, name: str, timestep: int, lazy: bool):
         super().__init__(file_path, name, timestep, lazy)
         self._data_shape = None
 
-    def _get_coordinate_limits(self, axis_name: str) -> np.ndarray | da.Array:
+    def _get_coordinate_limits(self, axis_name: str) -> np.ndarray:
         if axis_name not in self._data_dict:
-
-            def coordinate_limits_helper() -> np.ndarray:
-                with h5py.File(self.file_path, "r") as file:
-                    return file["AXIS"][axis_name][:]
-
-            if self.lazy:
-                delayed_helper = delayed(coordinate_limits_helper)()
-                self._data_dict[axis_name] = da.from_delayed(
-                    delayed_helper, shape=(2,), dtype=np.float64
-                )
-            else:
-                self._data_dict[axis_name] = coordinate_limits_helper()
-
+            with h5py.File(self.file_path, "r") as file:
+                self._data_dict[axis_name] = file["AXIS"][axis_name][:]
         return self._data_dict[axis_name]
 
     def _compute_coordinates(self, axis_name: str, size: int) -> np.ndarray | da.Array:
@@ -166,7 +155,7 @@ class Phase(Data):
         self.species = species
 
 
-class Raw(BaseAttributes):
+class Raw(BaseProperties):
     def __init__(self, file_path: str, name: str, timestep: int, lazy: bool, species: int):
         super().__init__(file_path, name, timestep, lazy)
         self.species = species
@@ -175,8 +164,7 @@ class Raw(BaseAttributes):
     def dict(self) -> dict:
         if not self._data_dict:
             with h5py.File(self.file_path, "r") as file:
-
-                def data_helper():
+                def dict_helper():
                     with h5py.File(self.file_path, "r") as f:
                         return f[key][:]
 
@@ -184,7 +172,7 @@ class Raw(BaseAttributes):
                     if self.lazy:
                         shape = file[key].shape
                         dtype = file[key].dtype
-                        delayed_helper = delayed(data_helper)()
+                        delayed_helper = delayed(dict_helper)()
                         self._data_dict[key] = da.from_delayed(delayed_helper, shape=shape, dtype=dtype)
                     else:
                         self._data_dict[key] = file[key][:]
