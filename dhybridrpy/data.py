@@ -27,6 +27,7 @@ class Data(BaseProperties):
     def __init__(self, file_path: str, name: str, timestep: int, lazy: bool):
         super().__init__(file_path, name, timestep, lazy)
         self._data_shape = None
+        self._data_dtype = None
 
     def _get_coordinate_limits(self, axis_name: str) -> np.ndarray:
         if axis_name not in self._data_dict:
@@ -51,6 +52,12 @@ class Data(BaseProperties):
                 self._data_shape = file["DATA"].shape[::-1]
         return self._data_shape
 
+    def _get_data_dtype(self) -> np.dtype:
+        if self._data_dtype is None:
+            with h5py.File(self.file_path, "r") as file:
+                self._data_dtype = file["DATA"].dtype
+        return self._data_dtype
+
     @property
     def data(self) -> np.ndarray | da.Array:
         """Retrieves the field / phase values. Rows correspond to x-values, columns correspond to y-values."""
@@ -63,7 +70,7 @@ class Data(BaseProperties):
             if self.lazy:
                 delayed_helper = delayed(data_helper)()
                 self._data_dict[self.name] = da.from_delayed(
-                    delayed_helper, shape=self._get_data_shape(), dtype=np.float64
+                    delayed_helper, shape=self._get_data_shape(), dtype=self._get_data_dtype()
                 )
             else:
                 self._data_dict[self.name] = data_helper()
