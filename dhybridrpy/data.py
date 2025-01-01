@@ -8,13 +8,24 @@ from matplotlib.collections import QuadMesh
 from typing import Tuple
 from dask.delayed import delayed
 
-class Data:
+class BaseAttributes:
     def __init__(self, file_path: str, name: str, timestep: int, lazy: bool):
         self.file_path = file_path
         self.name = name
         self.timestep = timestep
         self.lazy = lazy
         self._data_dict = {}
+
+    def __repr__(self) -> str:
+        attrs = ", ".join(
+            f"{attr}={value}" for attr, value in self.__dict__.items() if not attr.startswith("_")
+        )
+        return f"{self.__class__.__name__}({attrs})"
+
+
+class Data(BaseAttributes):
+    def __init__(self, file_path: str, name: str, timestep: int, lazy: bool):
+        super().__init__(file_path, name, timestep, lazy)
         self._data_shape = None
 
     def _get_coordinate_limits(self, axis_name: str) -> np.ndarray | da.Array:
@@ -142,12 +153,6 @@ class Data:
 
         return ax, mesh
 
-    def __repr__(self) -> str:
-        attrs = ", ".join(
-            f"{attr}={value}" for attr, value in self.__dict__.items() if not attr.startswith("_")
-        )
-        return f"{self.__class__.__name__}({attrs})"
-
 
 class Field(Data):
     def __init__(self, file_path: str, name: str, timestep: int, lazy: bool, origin: str):
@@ -161,14 +166,10 @@ class Phase(Data):
         self.species = species
 
 
-class Raw:
+class Raw(BaseAttributes):
     def __init__(self, file_path: str, name: str, timestep: int, lazy: bool, species: int):
-        self.file_path = file_path
-        self.name = name
-        self.timestep = timestep
+        super().__init__(file_path, name, timestep, lazy)
         self.species = species
-        self.lazy = lazy
-        self._data_dict = {}
 
     @property
     def dict(self) -> dict:
@@ -188,9 +189,3 @@ class Raw:
                     else:
                         self._data_dict[key] = file[key][:]
         return self._data_dict
-    
-    def __repr__(self) -> str:
-        attrs = ", ".join(
-            f"{attr}={value}" for attr, value in self.__dict__.items() if not attr.startswith("_")
-        )
-        return f"{self.__class__.__name__}({attrs})"
