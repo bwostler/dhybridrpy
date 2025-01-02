@@ -36,11 +36,11 @@ class InputFileParser:
             content = infile.read()
 
         # Regular expression to match sections with curly braces
-        section_pattern = re.compile(r'(\w+)\s*\{([^}]*)\}', re.DOTALL)
+        SECTION_PATTERN = re.compile(r'(\w+)\s*\{([^}]*)\}', re.DOTALL)
 
         # Generate namelist content
         namelist_content = []
-        for match in section_pattern.finditer(content):
+        for match in SECTION_PATTERN.finditer(content):
             section_name, parameters = match.group(1), match.group(2).strip()
 
             # Begin the namelist section
@@ -67,7 +67,7 @@ class InputFileParser:
         return processed_lines
 
 
-class Dhybridrpy:
+class DHybridrpy:
 
     _FIELD_MAPPING = {
         "Magnetic": "B",
@@ -77,6 +77,8 @@ class Dhybridrpy:
     _PHASE_MAPPING = {
         "FluidVel": "V"
     }
+
+    _SPECIES_PATTERN = re.compile(r'\d+')
 
     def __init__(self, input_file: str, output_path: str, lazy: bool = False):
         self.input_file = input_file
@@ -98,14 +100,15 @@ class Dhybridrpy:
         folder_components = os.path.relpath(dirpath, self.output_path).split(os.sep)
         output_type = folder_components[0]
 
-        if output_type == "Fields":
-            self._process_field(dirpath, filename, timestep, folder_components)
-        elif output_type == "Phase":
-            self._process_phase(dirpath, filename, timestep, folder_components)
-        elif output_type == "Raw":
-            self._process_raw(dirpath, filename, timestep, folder_components)
-        else:
-            logger.warning(f"Unknown output type '{output_type}' for {filename}. File not processed")
+        match output_type:
+            case "Fields":
+                self._process_field(dirpath, filename, timestep, folder_components)
+            case "Phase":
+                self._process_phase(dirpath, filename, timestep, folder_components)
+            case "Raw":
+                self._process_raw(dirpath, filename, timestep, folder_components)
+            case _:
+                logger.warning(f"Unknown output type '{output_type}' for {filename}. File not processed")
 
     def _process_field(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
         category = folder_components[1]
@@ -126,9 +129,7 @@ class Dhybridrpy:
         self._timesteps_dict[timestep].add_field(field)
 
     def _process_phase(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
-
         name = folder_components[1]
-
         # Manage bulk velocity and pressure special cases
         if name == "FluidVel":
             species_str = folder_components[-2]
@@ -144,7 +145,7 @@ class Dhybridrpy:
         if name == "x3x2x1" and "pres" in filename:
             name = "P"
         
-        species = int(re.search(r'\d+', species_str).group()) if species_str != "Total" else species_str
+        species = int(self._SPECIES_PATTERN.search(species_str).group()) if species_str != "Total" else species_str
         if timestep not in self._timesteps_dict:
             self._timesteps_dict[timestep] = Timestep(timestep)
         phase = Phase(os.path.join(dirpath, filename), name, timestep, self.lazy, species)
@@ -153,27 +154,29 @@ class Dhybridrpy:
     def _process_raw(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
         name = "raw"
         species_str = folder_components[-1]
-        species = int(re.search(r'\d+', species_str).group())
+        species = int(self._SPECIES_PATTERN.search(species_str).group())
         if timestep not in self._timesteps_dict:
             self._timesteps_dict[timestep] = Timestep(timestep)
         raw = Raw(os.path.join(dirpath, filename), name, timestep, self.lazy, species)
         self._timesteps_dict[timestep].add_raw(raw)
 
     def _traverse_directory(self) -> None:
-        timestep_pattern = re.compile(r"_(\d+)\.h5$")
+        TIMESTEP_PATTERN = re.compile(r"_(\d+)\.h5$")
         for dirpath, _, filenames in os.walk(self.output_path):
             for filename in filenames:
-                match = timestep_pattern.search(filename)
+                match = TIMESTEP_PATTERN.search(filename)
                 if match:
                     timestep = int(match.group(1))
                     self._process_file(dirpath, filename, timestep)
 
     def timestep(self, ts: int) -> Timestep:
+        """Access field, phase, and raw file information at a given timestep."""
         if ts in self._timesteps_dict:
             return self._timesteps_dict[ts]
         raise ValueError(f"Timestep {ts} not found")
 
     def timesteps(self, exclude_zero: bool = True) -> np.ndarray:
+        """Retrieve an array of the timesteps. Default behavior excludes timestep 0."""
         if self._sorted_timesteps is None:
             self._sorted_timesteps = np.sort(list(self._timesteps_dict))
         if exclude_zero and len(self._sorted_timesteps) > 0 and self._sorted_timesteps[0] == 0:

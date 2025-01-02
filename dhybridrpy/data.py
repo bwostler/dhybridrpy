@@ -53,6 +53,7 @@ class Data(BaseProperties):
         return self._data_shape
 
     def _get_data_dtype(self) -> np.dtype:
+        """Retrieve the type of the data without loading it."""
         if self._data_dtype is None:
             with h5py.File(self.file_path, "r") as file:
                 self._data_dtype = file["DATA"].dtype
@@ -60,7 +61,8 @@ class Data(BaseProperties):
 
     @property
     def data(self) -> np.ndarray | da.Array:
-        """Retrieves the field / phase values. Rows correspond to x-values, columns correspond to y-values."""
+        """Retrieve the data values at each grid point. In 2D, rows correspond to x-values and 
+        columns correspond to y-values."""
         if self.name not in self._data_dict:
 
             def data_helper() -> np.ndarray:
@@ -79,22 +81,22 @@ class Data(BaseProperties):
 
     @property
     def xdata(self) -> np.ndarray | da.Array:
-        """Retrieve x-coordinates."""
+        """Retrieve the grid x-coordinates."""
         return self._compute_coordinates("X1 AXIS", self._get_data_shape()[0])
 
     @property
     def ydata(self) -> np.ndarray | da.Array:
-        """Retrieve y-coordinates."""
+        """Retrieve the grid y-coordinates."""
         return self._compute_coordinates("X2 AXIS", self._get_data_shape()[1])
 
     @property
     def xlimdata(self) -> np.ndarray | da.Array:
-        """Retrieve x-axis limits."""
+        """Retrieve the grid x-axis limits."""
         return self._get_coordinate_limits("X1 AXIS")
 
     @property
     def ylimdata(self) -> np.ndarray | da.Array:
-        """Retrieve y-axis limits."""
+        """Retrieve the grid y-axis limits."""
         return self._get_coordinate_limits("X2 AXIS")
 
     def plot(self, 
@@ -110,6 +112,7 @@ class Data(BaseProperties):
         colorbar_label: str | None = None,
         **kwargs
     ) -> Tuple[Axes, QuadMesh]:
+        """Plot the 2D data."""
 
         if len(self._get_data_shape()) != 2:
             raise NotImplementedError("Plotting is currently restricted to 2D data.")
@@ -169,6 +172,7 @@ class Raw(BaseProperties):
 
     @property
     def dict(self) -> dict:
+        """Retriveve a dictionary of the raw file's keys and values."""
         if not self._data_dict:
             with h5py.File(self.file_path, "r") as file:
                 def dict_helper():

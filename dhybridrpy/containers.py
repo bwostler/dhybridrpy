@@ -71,7 +71,7 @@ class Timestep:
         self._raw_dict = defaultdict(lambda: {})
 
         # User uses these attributes to dynamically resolve a given field or phase using FieldContainer
-        # or PhaseContainer __getattr__ dunder function.
+        # PhaseContainer, or RawContainer __getattr__ dunder function.
         self.fields = FieldContainer(self._fields_dict, timestep)
         self.phases = PhaseContainer(self._phases_dict, timestep)
         self.raw_files = RawContainer(self._raw_dict, timestep)
