@@ -172,7 +172,7 @@ class Raw(BaseProperties):
 
     @property
     def dict(self) -> dict:
-        """Retriveve a dictionary of the raw file's keys and values."""
+        """Retrieve a dictionary of the raw file's keys and values."""
         if not self._data_dict:
             with h5py.File(self.file_path, "r") as file:
                 def dict_helper():
