@@ -2,65 +2,80 @@ from collections import defaultdict
 from typing import Callable
 from .data import Field, Phase, Raw
 
-class FieldContainer:
+class Container:
+    def __init__(self, data_dict: dict, timestep: int, container_type: str, key_name: str, default_key_value: int | str):
+        self.data_dict = data_dict
+        self.timestep = timestep
+        self.container_type = container_type.capitalize() if not container_type.isupper() else container_type
+        self.key_name = key_name
+        self.default_key_value = default_key_value
+
+    def __getattr__(self, data_name: str) -> Callable:
+        def get_data(*args, **kwargs) -> Field | Phase | Raw:
+
+            # Ensure there's at most one argument
+            if len(args) + len(kwargs) > 1:
+                raise TypeError(f"Expected at most one argument.")
+
+            # If the argument is a key value pair, make sure the key is the expected key_name
+            if kwargs and self.key_name not in kwargs:
+                raise TypeError(f"Argument name must be '{self.key_name}'.")
+
+            # Grab the value if no key is used, otherwise grab the key's value. If kwargs is empty, return the default value.
+            key = args[0] if args else kwargs.get(self.key_name, self.default_key_value)
+
+            # If key is a string, make sure it's capitalized
+            if isinstance(key, str) and not key.isupper():
+                key = key.capitalize()
+
+            # Check if key, data_name (e.g. "Total", "Bx") exist in data_dict at this timestep
+            if key not in self.data_dict:
+                raise AttributeError(f"{self.container_type} with {self.key_name} '{key}' not found at timestep {self.timestep}.")
+            if data_name not in self.data_dict[key]:
+                raise AttributeError(f"{self.container_type} '{data_name}' with {self.key_name} '{key}' not found at timestep {self.timestep}.")
+
+            return self.data_dict[key][data_name]
+
+        return get_data
+
+    def __repr__(self) -> str:
+        data_summary = {
+            f"{self.key_name} = {key}": sorted(data.keys()) for key, data in self.data_dict.items()
+        }
+        return f"{self.container_type}s at timestep {self.timestep} = {data_summary}"
+
+
+class FieldContainer(Container):
     def __init__(self, fields_dict: dict, timestep: int):
-        self.fields_dict = fields_dict
-        self.timestep = timestep
-
-    def __getattr__(self, name: str) -> Callable:
-        def get_field(origin: str = "Total") -> Field:
-            origin = origin.capitalize()
-            if origin not in self.fields_dict or name not in self.fields_dict[origin]:
-                raise AttributeError(f"Field '{name}' with origin '{origin}' not found at timestep {self.timestep}.")
-            return self.fields_dict[origin][name]
-
-        return get_field
-
-    def __repr__(self) -> str:
-        field_summary = {
-            f"origin = {origin}": sorted(fields.keys()) for origin, fields in sorted(self.fields_dict.items())
-        }
-        return f"Fields at timestep {self.timestep} = {field_summary}"
+        super().__init__(
+            data_dict=fields_dict,
+            timestep=timestep, 
+            container_type="Field", 
+            key_name="origin", 
+            default_key_value="Total"
+        )
 
 
-class PhaseContainer:
+class PhaseContainer(Container):
     def __init__(self, phases_dict: dict, timestep: int):
-        self.phases_dict = phases_dict
-        self.timestep = timestep
-
-    def __getattr__(self, name: str) -> Callable:
-        def get_phase(species: int | str = 1) -> Phase:
-            if name not in self.phases_dict.get(species, {}):
-                raise AttributeError(f"Phase '{name}' for species '{species}' not found at timestep {self.timestep}.")
-            return self.phases_dict[species][name]
-
-        return get_phase
-
-    def __repr__(self) -> str:
-        phase_summary = {
-            f"species = {species}": sorted(phases.keys()) for species, phases in self.phases_dict.items()
-        }
-        return f"Phases at timestep {self.timestep} = {phase_summary}"
+        super().__init__(
+            data_dict=phases_dict, 
+            timestep=timestep, 
+            container_type="Phase", 
+            key_name="species", 
+            default_key_value=1
+        )
 
 
-class RawContainer:
+class RawContainer(Container):
     def __init__(self, raw_dict: dict, timestep: int):
-        self.raw_dict = raw_dict
-        self.timestep = timestep
-
-    def __getattr__(self, name: str) -> Callable:
-        def get_raw(species: int = 1) -> Raw:
-            if name not in self.raw_dict.get(species, {}):
-                raise AttributeError(f"Raw file '{name}' for species '{species}' not found at timestep {self.timestep}.")
-            return self.raw_dict[species][name]
-
-        return get_raw
-
-    def __repr__(self) -> str:
-        raw_summary = {
-            f"species = {species}": sorted(raw.keys()) for species, raw in self.raw_dict.items()
-        }
-        return f"Raw files at timestep {self.timestep} = {raw_summary}"
+        super().__init__(
+            data_dict=raw_dict, 
+            timestep=timestep, 
+            container_type="Raw file", 
+            key_name="species", 
+            default_key_value=1
+        )
 
 
 class Timestep:
@@ -88,12 +103,8 @@ class Timestep:
         self._raw_dict[raw.species][raw.name] = raw
 
     def __repr__(self) -> str:
-        fields_summary = {f"origin = {origin}": list(name.keys()) for origin, name in self._fields_dict.items()}
-        phases_summary = {f"species = {species}": list(name.keys()) for species, name in self._phases_dict.items()}
-        raw_files_summary = {f"species = {species}": list(name.keys()) for species, name in self._raw_dict.items()}
         return (
-            f"Timestep(timestep = {self.timestep}, "
-            f"fields = {fields_summary}, "
-            f"phases = {phases_summary}, "
-            f"raw files = {raw_files_summary})"
+            f"{self.fields}\n"
+            f"{self.phases}\n"
+            f"{self.raw_files}"
         )
