@@ -1,9 +1,10 @@
 from collections import defaultdict
 from typing import Callable
 from .data import Field, Phase, Raw
+from typing import Union
 
 class Container:
-    def __init__(self, data_dict: dict, timestep: int, container_type: str, kwarg: str, default_kwarg_value: int | str):
+    def __init__(self, data_dict: dict, timestep: int, container_type: str, kwarg: str, default_kwarg_value: Union[int, str]):
         self.data_dict = data_dict
         self.timestep = timestep
         self.container_type = container_type.capitalize() if not container_type.isupper() else container_type
@@ -11,7 +12,7 @@ class Container:
         self.default_kwarg_value = default_kwarg_value
 
     def __getattr__(self, data_name: str) -> Callable:
-        def get_data(*args, **kwargs) -> Field | Phase | Raw:
+        def get_data(*args, **kwargs) -> Union[Field, Phase, Raw]:
 
             # Ensure there's at most one argument
             if len(args) + len(kwargs) > 1:
@@ -19,7 +20,7 @@ class Container:
 
             # If the argument is a key value pair, make sure the key is the expected kwarg
             if kwargs and self.kwarg not in kwargs:
-                raise TypeError(f"Argument name must be '{self.kwarg}'.")
+                raise TypeError(f"Argument name '{next(iter(kwargs))}' must be '{self.kwarg}'.")
 
             # Grab the value if no key is used, otherwise grab the key's value. If kwargs is empty, return the default value.
             data_key = args[0] if args else kwargs.get(self.kwarg, self.default_kwarg_value)

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 from matplotlib.axes import Axes
 from matplotlib.collections import QuadMesh
-from typing import Tuple
+from typing import Tuple, Union, Optional
 from dask.delayed import delayed
 
 class BaseProperties:
@@ -35,7 +35,7 @@ class Data(BaseProperties):
                 self._data_dict[axis_name] = file["AXIS"][axis_name][:]
         return self._data_dict[axis_name]
 
-    def _compute_coordinates(self, axis_name: str, size: int) -> np.ndarray | da.Array:
+    def _compute_coordinates(self, axis_name: str, size: int) -> Union[np.ndarray, da.Array]:
         key = f"{axis_name} coords"
         if key not in self._data_dict:
             axis_limits = self._get_coordinate_limits(axis_name)
@@ -60,7 +60,7 @@ class Data(BaseProperties):
         return self._data_dtype
 
     @property
-    def data(self) -> np.ndarray | da.Array:
+    def data(self) -> Union[np.ndarray, da.Array]:
         """Retrieve the data values at each grid point. In 2D, rows correspond to x-values and 
         columns correspond to y-values."""
         if self.name not in self._data_dict:
@@ -80,39 +80,39 @@ class Data(BaseProperties):
         return self._data_dict[self.name]
 
     @property
-    def xdata(self) -> np.ndarray | da.Array:
+    def xdata(self) -> Union[np.ndarray, da.Array]:
         """Retrieve the grid x-coordinates."""
         return self._compute_coordinates("X1 AXIS", self._get_data_shape()[0])
 
     @property
-    def ydata(self) -> np.ndarray | da.Array:
+    def ydata(self) -> Union[np.ndarray, da.Array]:
         """Retrieve the grid y-coordinates."""
         return self._compute_coordinates("X2 AXIS", self._get_data_shape()[1])
 
     @property
-    def xlimdata(self) -> np.ndarray | da.Array:
+    def xlimdata(self) -> Union[np.ndarray, da.Array]:
         """Retrieve the grid x-axis limits."""
         return self._get_coordinate_limits("X1 AXIS")
 
     @property
-    def ylimdata(self) -> np.ndarray | da.Array:
+    def ylimdata(self) -> Union[np.ndarray, da.Array]:
         """Retrieve the grid y-axis limits."""
         return self._get_coordinate_limits("X2 AXIS")
 
     def plot(self, 
-        ax: Axes | None = None,
+        ax: Optional[Axes] = None,
         dpi: int = 100,
-        title: str | None = None,
+        title: Optional[str] = None,
         xlabel: str = r"$x$",
         ylabel: str = r"$y$",
-        xlim: tuple | None = None,
-        ylim: tuple | None = None,
+        xlim: Optional[tuple] = None,
+        ylim: Optional[tuple] = None,
         colormap: str = "viridis",
         show_colorbar: bool = True,
-        colorbar_label: str | None = None,
+        colorbar_label: Optional[str] = None,
         **kwargs
     ) -> Tuple[Axes, QuadMesh]:
-        """Plot the 2D data."""
+        """Plot the data."""
 
         if len(self._get_data_shape()) != 2:
             raise NotImplementedError("Plotting is currently restricted to 2D data.")
@@ -160,7 +160,7 @@ class Field(Data):
 
 
 class Phase(Data):
-    def __init__(self, file_path: str, name: str, timestep: int, lazy: bool, species: int | str):
+    def __init__(self, file_path: str, name: str, timestep: int, lazy: bool, species: Union[int, str]):
         super().__init__(file_path, name, timestep, lazy)
         self.species = species
 

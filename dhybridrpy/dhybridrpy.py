@@ -77,7 +77,9 @@ class DHybridrpy:
     _PHASE_MAPPING = {
         "FluidVel": "V"
     }
-
+    _COMPONENT_MAPPING = {
+        "Intensity": "magnitude"
+    }
     _SPECIES_PATTERN = re.compile(r'\d+')
 
     def __init__(self, input_file: str, output_path: str, lazy: bool = False):
@@ -100,15 +102,14 @@ class DHybridrpy:
         folder_components = os.path.relpath(dirpath, self.output_path).split(os.sep)
         output_type = folder_components[0]
 
-        match output_type:
-            case "Fields":
-                self._process_field(dirpath, filename, timestep, folder_components)
-            case "Phase":
-                self._process_phase(dirpath, filename, timestep, folder_components)
-            case "Raw":
-                self._process_raw(dirpath, filename, timestep, folder_components)
-            case _:
-                logger.warning(f"Unknown output type '{output_type}' for {filename}. File not processed")
+        if output_type == "Fields":
+            self._process_field(dirpath, filename, timestep, folder_components)
+        elif output_type == "Phase":
+            self._process_phase(dirpath, filename, timestep, folder_components)
+        elif output_type == "Raw":
+            self._process_raw(dirpath, filename, timestep, folder_components)
+        else:
+            logger.warning(f"Unknown output type '{output_type}' for {filename}. File not processed")
 
     def _process_field(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
         category = folder_components[1]
@@ -116,6 +117,8 @@ class DHybridrpy:
             folder_components.insert(2, "Total")
         origin = folder_components[-2]
         component = folder_components[-1]
+        if component in self._COMPONENT_MAPPING:
+            component = self._COMPONENT_MAPPING[component]
 
         prefix = self._FIELD_MAPPING.get(category)
         if not prefix:
@@ -134,6 +137,8 @@ class DHybridrpy:
         if name == "FluidVel":
             species_str = folder_components[-2]
             component = folder_components[-1]
+            if component in self._COMPONENT_MAPPING:
+                component = self._COMPONENT_MAPPING[component]
             prefix = self._PHASE_MAPPING.get(name)
             if not prefix:
                 logger.warning(f"Unknown name '{name}'. Skipping {filename}")
