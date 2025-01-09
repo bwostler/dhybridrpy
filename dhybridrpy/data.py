@@ -99,7 +99,8 @@ class Data(BaseProperties):
         """Retrieve the grid y-axis limits."""
         return self._get_coordinate_limits("X2 AXIS")
 
-    def plot(self, 
+    def plot(self,
+        *,
         ax: Optional[Axes] = None,
         dpi: int = 100,
         title: Optional[str] = None,
@@ -120,28 +121,21 @@ class Data(BaseProperties):
         if ax is None:
             fig, ax = plt.subplots(figsize=(8, 6), dpi=dpi)
 
-        if self.lazy:
-            data, xdata, ydata, xlimdata, ylimdata = (
-                self.data.compute(),
-                self.xdata.compute(), 
-                self.ydata.compute(), 
-                self.xlimdata.compute(), 
-                self.ylimdata.compute()
-            )
-        else:
-            data, xdata, ydata, xlimdata, ylimdata = (
-                self.data, 
-                self.xdata, 
-                self.ydata, 
-                self.xlimdata, 
-                self.ylimdata
-            )
+        def is_computable(arr: Union[np.array, da.Array]) -> bool:
+            return self.lazy and isinstance(arr, da.Array)
+
+        data = self.data.compute() if is_computable(self.data) else self.data
+        xdata = self.xdata.compute() if is_computable(self.xdata) else self.xdata
+        ydata = self.ydata.compute() if is_computable(self.ydata) else self.ydata
+        xlimdata = self.xlimdata.compute() if is_computable(self.xlimdata) else self.xlimdata
+        ylimdata = self.ylimdata.compute() if is_computable(self.ylimdata) else self.ylimdata
 
         X, Y = np.meshgrid(xdata, ydata, indexing="ij")
         mesh = ax.pcolormesh(
             X, Y, data, cmap=colormap, shading="auto", **kwargs
         )
-        ax.set_title(title if title else f"{self.name} at timestep {self.timestep}")
+
+        ax.set_title(title)
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
         ax.set_xlim(xlim if xlim else xlimdata)
@@ -158,11 +152,21 @@ class Field(Data):
         super().__init__(file_path, name, timestep, lazy)
         self.origin = origin # e.g., "External"
 
+    def plot(self, **kwargs) -> Tuple[Axes, QuadMesh]:
+        if "title" not in kwargs:
+            kwargs["title"] = f"{self.name} at timestep {self.timestep} (origin = {self.origin})"
+        return super().plot(**kwargs)
+
 
 class Phase(Data):
     def __init__(self, file_path: str, name: str, timestep: int, lazy: bool, species: Union[int, str]):
         super().__init__(file_path, name, timestep, lazy)
         self.species = species
+
+    def plot(self, **kwargs) -> Tuple[Axes, QuadMesh]:
+        if "title" not in kwargs:
+            kwargs["title"] = f"{self.name} at timestep {self.timestep} (species = {self.species})"
+        return super().plot(**kwargs)
 
 
 class Raw(BaseProperties):
