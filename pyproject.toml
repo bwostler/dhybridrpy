@@ -11,6 +11,7 @@ dependencies = [
     "ruff>=0.7.1",
     "h5py",
     "f90nml",
-    "pre-commit"
+    "pre-commit",
+    "dask"
 ]
 license = {file = "LICENSE.txt"}
