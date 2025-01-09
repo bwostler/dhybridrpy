@@ -79,7 +79,7 @@ class Timestep:
 
     def add_field(self, field: Field) -> None:
         if field.origin not in self._fields_dict:
-            raise ValueError(f"Unknown origin: {field.origin}")
+            raise ValueError(f"Unknown origin '{field.origin}'.")
         self._fields_dict[field.origin][field.name] = field
 
     def add_phase(self, phase: Phase) -> None:

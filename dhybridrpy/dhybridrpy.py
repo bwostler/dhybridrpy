@@ -95,9 +95,9 @@ class DHybridrpy:
 
     def _validate_paths(self):
         if not os.path.exists(self.input_file):
-            raise FileNotFoundError(f"Input file {self.input_file} does not exist")
+            raise FileNotFoundError(f"Input file {self.input_file} does not exist.")
         if not os.path.isdir(self.output_folder):
-            raise NotADirectoryError(f"Output folder {self.output_folder} is not a directory")
+            raise NotADirectoryError(f"Output folder {self.output_folder} is not a directory.")
 
     def _process_file(self, dirpath: str, filename: str, timestep: int) -> None:
         folder_components = os.path.relpath(dirpath, self.output_folder).split(os.sep)
@@ -110,7 +110,7 @@ class DHybridrpy:
         elif output_type == "Raw":
             self._process_raw(dirpath, filename, timestep, folder_components)
         else:
-            logger.warning(f"Unknown output type '{output_type}' for {filename}. File not processed")
+            logger.warning(f"Unknown output type '{output_type}' for {filename}. File not processed.")
 
     def _process_field(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
         category = folder_components[1]
@@ -179,7 +179,7 @@ class DHybridrpy:
         """Access field, phase, and raw file information at a given timestep."""
         if ts in self._timesteps_dict:
             return self._timesteps_dict[ts]
-        raise ValueError(f"Timestep {ts} not found")
+        raise ValueError(f"Timestep {ts} not found.")
 
     def timestep_index(self, index: int) -> Timestep:
         """Access field, phase, and raw file information at a given timestep index."""
