@@ -82,10 +82,11 @@ class DHybridrpy:
     }
     _SPECIES_PATTERN = re.compile(r'\d+')
 
-    def __init__(self, input_file: str, output_path: str, lazy: bool = False):
+    def __init__(self, input_file: str, output_folder: str, lazy: bool = False, exclude_timestep_zero: bool = True):
         self.input_file = input_file
-        self.output_path = output_path
+        self.output_folder = output_folder
         self.lazy = lazy
+        self.exclude_timestep_zero = exclude_timestep_zero
         self._timesteps_dict = {}
         self._sorted_timesteps = None
         self._validate_paths()
@@ -95,11 +96,11 @@ class DHybridrpy:
     def _validate_paths(self):
         if not os.path.exists(self.input_file):
             raise FileNotFoundError(f"Input file {self.input_file} does not exist")
-        if not os.path.isdir(self.output_path):
-            raise NotADirectoryError(f"Output path {self.output_path} is not a directory")
+        if not os.path.isdir(self.output_folder):
+            raise NotADirectoryError(f"Output folder {self.output_folder} is not a directory")
 
     def _process_file(self, dirpath: str, filename: str, timestep: int) -> None:
-        folder_components = os.path.relpath(dirpath, self.output_path).split(os.sep)
+        folder_components = os.path.relpath(dirpath, self.output_folder).split(os.sep)
         output_type = folder_components[0]
 
         if output_type == "Fields":
@@ -167,7 +168,7 @@ class DHybridrpy:
 
     def _traverse_directory(self) -> None:
         TIMESTEP_PATTERN = re.compile(r"_(\d+)\.h5$")
-        for dirpath, _, filenames in os.walk(self.output_path):
+        for dirpath, _, filenames in os.walk(self.output_folder):
             for filename in filenames:
                 match = TIMESTEP_PATTERN.search(filename)
                 if match:
@@ -180,10 +181,18 @@ class DHybridrpy:
             return self._timesteps_dict[ts]
         raise ValueError(f"Timestep {ts} not found")
 
-    def timesteps(self, exclude_zero: bool = True) -> np.ndarray:
-        """Retrieve an array of the timesteps. Default behavior excludes timestep 0."""
+    def timestep_index(self, index: int) -> Timestep:
+        """Access field, phase, and raw file information at a given timestep index."""
+        timesteps = self.timesteps()
+        num_timesteps = len(timesteps)
+        if -num_timesteps <= index < num_timesteps:
+            return self.timestep(timesteps[index])
+        raise IndexError(f"Index {index} is out of range. Valid range: {-num_timesteps} to {num_timesteps-1}.")
+
+    def timesteps(self) -> np.ndarray:
+        """Retrieve an array of the timesteps."""
         if self._sorted_timesteps is None:
             self._sorted_timesteps = np.sort(list(self._timesteps_dict))
-        if exclude_zero and len(self._sorted_timesteps) > 0 and self._sorted_timesteps[0] == 0:
+        if self.exclude_timestep_zero and len(self._sorted_timesteps) > 0 and self._sorted_timesteps[0] == 0:
             return self._sorted_timesteps[1:]
         return self._sorted_timesteps
