@@ -26,6 +26,7 @@ class BaseProperties:
 class Data(BaseProperties):
     def __init__(self, file_path: str, name: str, timestep: int, lazy: bool):
         super().__init__(file_path, name, timestep, lazy)
+        self._plot_title = f"{name} at timestep {timestep}"
         self._data_shape = None
         self._data_dtype = None
 
@@ -121,7 +122,7 @@ class Data(BaseProperties):
         if ax is None:
             fig, ax = plt.subplots(figsize=(8, 6), dpi=dpi)
 
-        def is_computable(arr: Union[np.array, da.Array]) -> bool:
+        def is_computable(arr: Union[np.ndarray, da.Array]) -> bool:
             return self.lazy and isinstance(arr, da.Array)
 
         data = self.data.compute() if is_computable(self.data) else self.data
@@ -135,7 +136,7 @@ class Data(BaseProperties):
             X, Y, data, cmap=colormap, shading="auto", **kwargs
         )
 
-        ax.set_title(title)
+        ax.set_title(title if title else self._plot_title)
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
         ax.set_xlim(xlim if xlim else xlimdata)
@@ -153,8 +154,7 @@ class Field(Data):
         self.origin = origin # e.g., "External"
 
     def plot(self, **kwargs) -> Tuple[Axes, QuadMesh]:
-        if "title" not in kwargs:
-            kwargs["title"] = f"{self.name} at timestep {self.timestep} (origin = {self.origin})"
+        self._plot_title += f" (origin = {self.origin})"
         return super().plot(**kwargs)
 
 
@@ -164,8 +164,7 @@ class Phase(Data):
         self.species = species
 
     def plot(self, **kwargs) -> Tuple[Axes, QuadMesh]:
-        if "title" not in kwargs:
-            kwargs["title"] = f"{self.name} at timestep {self.timestep} (species = {self.species})"
+        self._plot_title += f" (species = {self.species})"
         return super().plot(**kwargs)
 
 
