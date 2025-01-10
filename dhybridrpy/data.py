@@ -154,7 +154,9 @@ class Field(Data):
         self.origin = origin # e.g., "External"
 
     def plot(self, **kwargs) -> Tuple[Axes, QuadMesh]:
-        self._plot_title += f" (origin = {self.origin})"
+        origin_info = f" (origin = {self.origin})"
+        if origin_info not in self._plot_title:
+            self._plot_title += origin_info
         return super().plot(**kwargs)
 
 
@@ -164,7 +166,9 @@ class Phase(Data):
         self.species = species
 
     def plot(self, **kwargs) -> Tuple[Axes, QuadMesh]:
-        self._plot_title += f" (species = {self.species})"
+        species_info = f" (species = {self.species})"
+        if species_info not in self._plot_title:
+            self._plot_title += species_info
         return super().plot(**kwargs)
 
 
