@@ -40,10 +40,14 @@ class Container:
         return get_data
 
     def __repr__(self) -> str:
-        data_summary = {
-            f"{self.kwarg} = {key}": sorted(value.keys()) for key, value in self.data_dict.items()
-        }
-        return f"{self.container_type}s at timestep {self.timestep} = {data_summary}"
+        data_summary = "\n".join(
+            f"  {self.kwarg} = {key}: " + ", ".join(sorted(value.keys()))
+            for key, value in self.data_dict.items()
+        )
+        return (
+            f"{self.container_type}s at timestep {self.timestep}:\n"
+            f"{data_summary}"
+        )
 
 
 class Timestep:

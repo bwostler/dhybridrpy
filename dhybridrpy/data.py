@@ -158,7 +158,6 @@ class Data(BaseProperties):
         xlimdata = self.xlimdata.compute() if is_computable(self.xlimdata) else self.xlimdata
 
         if num_dimensions == 1:
-
             line = ax.plot(xdata, data, **kwargs)[0]
             ax.set_title(title if title else self._plot_title)
             ax.set_xlabel(xlabel if xlabel else "$x$")
@@ -166,17 +165,13 @@ class Data(BaseProperties):
             ax.set_xlim(xlim if xlim else xlimdata)
 
             return ax, line
-
         elif num_dimensions == 2:
-
             ydata = self.ydata.compute() if is_computable(self.ydata) else self.ydata
             ylimdata = self.ylimdata.compute() if is_computable(self.ylimdata) else self.ylimdata
-
             X, Y = np.meshgrid(xdata, ydata, indexing="ij")
             mesh = ax.pcolormesh(
                 X, Y, data, cmap=colormap, shading="auto", **kwargs
             )
-
             ax.set_title(title if title else self._plot_title)
             xlabel, ylabel = self._LABEL_MAPPINGS[self.name]
             ax.set_xlabel(xlabel)
@@ -188,19 +183,15 @@ class Data(BaseProperties):
                 cbar.set_label(colorbar_label if colorbar_label else f"{self.name}")
 
             return ax, mesh
-
         else:
-
             ydata = self.ydata.compute() if is_computable(self.ydata) else self.ydata
             ylimdata = self.ylimdata.compute() if is_computable(self.ylimdata) else self.ylimdata
             zdata = self.zdata.compute() if is_computable(self.zdata) else self.zdata
             zlimdata = self.zlimdata.compute() if is_computable(self.zlimdata) else self.zlimdata
-
             X, Y, Z = np.meshgrid(xdata, ydata, zdata, indexing="ij")
             scatter = ax.scatter(
                 X.flatten(), Y.flatten(), Z.flatten(), c=data.flatten(), cmap=colormap, **kwargs
             )
-
             ax.set_title(title if title else self._plot_title)
             ax.set_xlabel(xlabel if xlabel else "$x$")
             ax.set_ylabel(ylabel if ylabel else "$y$")
@@ -208,7 +199,6 @@ class Data(BaseProperties):
             ax.set_xlim(xlim if xlim else xlimdata)
             ax.set_ylim(ylim if ylim else ylimdata)
             ax.set_zlim(zlim if zlim else zlimdata)
-
             if show_colorbar:
                 cbar = plt.colorbar(scatter, ax=ax, shrink=0.5, aspect=10)
                 cbar.set_label(colorbar_label if colorbar_label else f"{self.name}")
