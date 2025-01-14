@@ -75,7 +75,8 @@ class DHybridrpy:
         "CurrentDens": "J"
     }
     _PHASE_MAPPING = {
-        "FluidVel": "V"
+        "FluidVel": "V",
+        "PressureTen": "P"
     }
     _COMPONENT_MAPPING = {
         "Intensity": "magnitude"
@@ -134,8 +135,9 @@ class DHybridrpy:
 
     def _process_phase(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
         name = folder_components[1]
-        # Manage bulk velocity and pressure special cases
-        if name == "FluidVel":
+        
+        # Manage bulk velocity, pressure tensor, and scalar pressure special cases
+        if name == "FluidVel" or name == "PressureTen":
             species_str = folder_components[-2]
             component = folder_components[-1]
             if component in self._COMPONENT_MAPPING:
