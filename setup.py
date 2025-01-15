@@ -15,5 +15,12 @@ setup(
         "License :: OSI Approved :: GNU Affero General Public License v3",
         "Operating System :: OS Independent",
     ],
-    license="AGPL-3.0"
+    license="AGPL-3.0",
+    install_requires=[
+        "numpy",
+        "h5py",
+        "matplotlib",
+        "dask",
+        "f90nml"
+    ]
 )
