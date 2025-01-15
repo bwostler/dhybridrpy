@@ -117,7 +117,7 @@ class DHybridrpy:
         category = folder_components[1]
         if category == "CurrentDens":
             folder_components.insert(2, "Total")
-        origin = folder_components[-2]
+        field_type = folder_components[-2]
         component = folder_components[-1]
         if component in self._COMPONENT_MAPPING:
             component = self._COMPONENT_MAPPING[component]
@@ -130,7 +130,7 @@ class DHybridrpy:
         name = f"{prefix}{component}"
         if timestep not in self._timesteps_dict:
             self._timesteps_dict[timestep] = Timestep(timestep)
-        field = Field(os.path.join(dirpath, filename), name, timestep, self.lazy, origin)
+        field = Field(os.path.join(dirpath, filename), name, timestep, self.lazy, field_type)
         self._timesteps_dict[timestep].add_field(field)
 
     def _process_phase(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:

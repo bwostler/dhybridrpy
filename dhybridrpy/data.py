@@ -207,14 +207,14 @@ class Data(BaseProperties):
 
 
 class Field(Data):
-    def __init__(self, file_path: str, name: str, timestep: int, lazy: bool, origin: str):
+    def __init__(self, file_path: str, name: str, timestep: int, lazy: bool, field_type: str):
         super().__init__(file_path, name, timestep, lazy)
-        self.origin = origin # e.g., "External"
+        self.type = field_type # The type of field, e.g., "External"
 
     def plot(self, **kwargs) -> Tuple[Axes, Union[Line2D, QuadMesh, PathCollection]]:
-        origin_info = f" (origin = {self.origin})"
-        if origin_info not in self._plot_title:
-            self._plot_title += origin_info
+        type_info = f" (type = {self.type})"
+        if not self._plot_title.endswith(type_info):
+            self._plot_title += type_info
         return super().plot(**kwargs)
 
 
@@ -225,7 +225,7 @@ class Phase(Data):
 
     def plot(self, **kwargs) -> Tuple[Axes, Union[Line2D, QuadMesh, PathCollection]]:
         species_info = f" (species = {self.species})"
-        if species_info not in self._plot_title:
+        if not self._plot_title.endswith(species_info):
             self._plot_title += species_info
         return super().plot(**kwargs)
 

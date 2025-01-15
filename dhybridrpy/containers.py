@@ -7,7 +7,7 @@ class Container:
     def __init__(self, data_dict: dict, timestep: int, container_type: str, kwarg: str, default_kwarg_value: Union[int, str]):
         self.data_dict = data_dict
         self.timestep = timestep
-        self.container_type = container_type.capitalize() if not container_type.isupper() else container_type
+        self.type = container_type.capitalize() if not container_type.isupper() else container_type
         self.kwarg = kwarg
         self.default_kwarg_value = default_kwarg_value
 
@@ -31,9 +31,9 @@ class Container:
 
             # Check if data_key, data_name (e.g. "Total", "Bx") exist in data_dict at this timestep
             if data_key not in self.data_dict:
-                raise AttributeError(f"{self.container_type} with {self.kwarg} '{data_key}' not found at timestep {self.timestep}.")
+                raise AttributeError(f"{self.type} with {self.kwarg} '{data_key}' not found at timestep {self.timestep}.")
             if data_name not in self.data_dict[data_key]:
-                raise AttributeError(f"{self.container_type} '{data_name}' with {self.kwarg} '{data_key}' not found at timestep {self.timestep}.")
+                raise AttributeError(f"{self.type} '{data_name}' with {self.kwarg} '{data_key}' not found at timestep {self.timestep}.")
 
             return self.data_dict[data_key][data_name]
 
@@ -45,7 +45,7 @@ class Container:
             for key, value in self.data_dict.items()
         )
         return (
-            f"{self.container_type}s at timestep {self.timestep}:\n"
+            f"{self.type}s at timestep {self.timestep}:\n"
             f"{data_summary}"
         )
 
@@ -63,7 +63,7 @@ class Timestep:
             data_dict=self._fields_dict, 
             timestep=timestep, 
             container_type="Field", 
-            kwarg="origin", 
+            kwarg="type", 
             default_kwarg_value="Total"
         )
         self.phases = Container(
@@ -82,9 +82,9 @@ class Timestep:
         )
 
     def add_field(self, field: Field) -> None:
-        if field.origin not in self._fields_dict:
-            raise ValueError(f"Unknown origin '{field.origin}'.")
-        self._fields_dict[field.origin][field.name] = field
+        if field.type not in self._fields_dict:
+            raise ValueError(f"Unknown type '{field.type}'.")
+        self._fields_dict[field.type][field.name] = field
 
     def add_phase(self, phase: Phase) -> None:
         self._phases_dict[phase.species][phase.name] = phase
