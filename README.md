@@ -4,18 +4,16 @@
 
 ## Features
 
-- Simply + efficiently access simulation input data and output data like timesteps, fields (e.g. magnetic field), phases (e.g. distribution functions), and unprocessed ("raw") hdf5 files.
+- Efficiently access simulation input data and output data like timesteps, fields (e.g. magnetic field), phases (e.g. distribution functions), and unprocessed ("raw") hdf5 files.
 - Quickly plot output data.
 - Lazily load large datasets using `dask`.
 
 ## Installation
 
-To install `dhybridrpy`, clone the repository, create a new virtual environment (optional), and pip-install:
+To install `dhybridrpy`, clone the repository and pip-install:
 
 ```bash
 git clone https://github.com/bwostler/dhybridrpy.git
-python -m venv venv
-. venv/bin/activate
 pip install ./dhybridrpy
 ```
 

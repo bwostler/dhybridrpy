@@ -5,10 +5,10 @@ description = "A Python package to easily read input + output data from dHybridR
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
-    "h5py>=3.12.1",
-    "matplotlib>=3.9.2",
-    "numpy>=2.1.2",
-    "ruff>=0.7.1",
+    "h5py",
+    "matplotlib",
+    "numpy",
+    "ruff",
     "h5py",
     "f90nml",
     "pre-commit",
