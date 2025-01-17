@@ -2,12 +2,13 @@ import h5py
 import numpy as np
 import dask.array as da
 import matplotlib.pyplot as plt
+from matplotlib.widgets import Slider
 from collections import defaultdict
 
 from matplotlib.axes import Axes
 from matplotlib.collections import QuadMesh, PathCollection
 from matplotlib.lines import Line2D
-from typing import Tuple, Union, Optional
+from typing import Tuple, Union, Optional, Literal
 from dask.delayed import delayed
 
 class BaseProperties:
@@ -135,8 +136,9 @@ class Data(BaseProperties):
         colormap: str = "viridis",
         show_colorbar: bool = True,
         colorbar_label: Optional[str] = None,
+        slice_axis: Literal["x","y","z"] = "x",
         **kwargs
-    ) -> Tuple[Axes, Union[Line2D, QuadMesh, PathCollection]]:
+    ) -> Tuple[Axes, Union[Line2D, QuadMesh]]:
         """Plot the data."""
 
         num_dimensions = len(self._get_data_shape())
@@ -144,11 +146,9 @@ class Data(BaseProperties):
             raise NotImplementedError("Plotting is restricted to 1D, 2D, or 3D data.")
 
         if ax is None:
-            if 1 <= num_dimensions <= 2:
-                fig, ax = plt.subplots(figsize=(8,6), dpi=dpi)
-            else:
-                fig = plt.figure(figsize=(8,6), dpi=dpi)
-                ax = fig.add_subplot(111, projection="3d")
+            fig, ax = plt.subplots(figsize=(8,6), dpi=dpi)
+            if num_dimensions ==  3:
+                plt.subplots_adjust(bottom=0.2)
 
         def is_computable(arr: Union[np.ndarray, da.Array]) -> bool:
             return self.lazy and isinstance(arr, da.Array)
@@ -184,26 +184,73 @@ class Data(BaseProperties):
 
             return ax, mesh
         else:
+            if slice_axis not in ["x","y","z"]:
+                raise ValueError("Slice axis must be 'x', 'y', or 'z'.")
+
             ydata = self.ydata.compute() if is_computable(self.ydata) else self.ydata
             ylimdata = self.ylimdata.compute() if is_computable(self.ylimdata) else self.ylimdata
             zdata = self.zdata.compute() if is_computable(self.zdata) else self.zdata
             zlimdata = self.zlimdata.compute() if is_computable(self.zlimdata) else self.zlimdata
-            X, Y, Z = np.meshgrid(xdata, ydata, zdata, indexing="ij")
-            scatter = ax.scatter(
-                X.flatten(), Y.flatten(), Z.flatten(), c=data.flatten(), cmap=colormap, **kwargs
-            )
-            ax.set_title(title if title else self._plot_title)
-            ax.set_xlabel(xlabel if xlabel else "$x$")
-            ax.set_ylabel(ylabel if ylabel else "$y$")
-            ax.set_zlabel(zlabel if zlabel else "$z$")
-            ax.set_xlim(xlim if xlim else xlimdata)
-            ax.set_ylim(ylim if ylim else ylimdata)
-            ax.set_zlim(zlim if zlim else zlimdata)
+
+            initial_slice = 0
+            if slice_axis == "x":
+                Y, Z = np.meshgrid(ydata, zdata, indexing="ij")
+                mesh = ax.pcolormesh(
+                    Y, Z, data[initial_slice,:,:], cmap=colormap, shading="auto", **kwargs
+                )
+                initial_position_str = f"\nx = {xdata[initial_slice]:.2f}"
+                ax.set_xlabel(ylabel if ylabel else "$y$")
+                ax.set_ylabel(zlabel if zlabel else "$z$")
+                ax.set_xlim(ylim if ylim else ylimdata)
+                ax.set_ylim(zlim if zlim else zlimdata)
+            elif slice_axis == "y":
+                X, Z = np.meshgrid(xdata, zdata, indexing="ij")
+                mesh = ax.pcolormesh(
+                    X, Z, data[:,initial_slice,:], cmap=colormap, shading="auto", **kwargs
+                )
+                initial_position_str = f"\ny = {ydata[initial_slice]:.2f}"
+                ax.set_xlabel(xlabel if xlabel else "$x$")
+                ax.set_ylabel(zlabel if zlabel else "$z$")
+                ax.set_xlim(xlim if xlim else xlimdata)
+                ax.set_ylim(zlim if zlim else zlimdata)
+            else:
+                X, Y = np.meshgrid(xdata, ydata, indexing="ij")
+                mesh = ax.pcolormesh(
+                    X, Y, data[:,:,initial_slice], cmap=colormap, shading="auto", **kwargs
+                )
+                initial_position_str = f"\nz = {zdata[initial_slice]:.2f}"
+                ax.set_xlabel(xlabel if xlabel else "$x$")
+                ax.set_ylabel(ylabel if ylabel else "$y$")
+                ax.set_xlim(xlim if xlim else xlimdata)
+                ax.set_ylim(ylim if ylim else ylimdata)
+
+            ax.set_title(title if title else f"{self._plot_title}{initial_position_str}")
             if show_colorbar:
-                cbar = plt.colorbar(scatter, ax=ax, shrink=0.5, aspect=10)
+                cbar = plt.colorbar(mesh, ax=ax)
                 cbar.set_label(colorbar_label if colorbar_label else f"{self.name}")
 
-            return ax, scatter
+            ax_slider = plt.axes([0.2, 0.05, 0.6, 0.03])
+            data_shape = data.shape[{"x": 0, "y": 1, "z": 2}[slice_axis]]
+            slider = Slider(ax_slider, "Slice index", 0, data_shape-1, valinit=initial_slice, valstep=1)
+
+            def update(val):
+                slice_index = int(slider.val)
+                if slice_axis == "x":
+                    data_slice = data[slice_index,:,:]
+                    position_str = f"\nx = {xdata[slice_index]:.2f}"
+                elif slice_axis == "y":
+                    data_slice = data[:,slice_index,:]
+                    position_str = f"\ny = {ydata[slice_index]:.2f}"
+                else:
+                    data_slice = data[:,:,slice_index]
+                    position_str = f"\nz = {zdata[slice_index]:.2f}"
+
+                ax.set_title(title if title else f"{self._plot_title}{position_str}")
+                mesh.set_array(data_slice.ravel())
+                fig.canvas.draw_idle()
+
+            slider.on_changed(update)
+            return ax, mesh
 
 
 class Field(Data):

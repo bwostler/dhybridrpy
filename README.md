@@ -5,7 +5,7 @@
 ## Features
 
 - Efficiently access simulation input data and output data like timesteps, fields (e.g. magnetic field), phases (e.g. distribution functions), and unprocessed ("raw") hdf5 files.
-- Quickly plot output data.
+- Quickly plot 1D, 2D, and 3D output data.
 - Lazily load large datasets using `dask`.
 
 ## Installation
