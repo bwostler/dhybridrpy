@@ -74,8 +74,7 @@ class Data(BaseProperties):
 
     @property
     def data(self) -> Union[np.ndarray, da.Array]:
-        """Retrieve the data values at each grid point. In 2D, rows correspond to x-values and 
-        columns correspond to y-values."""
+        """Retrieve the data at each grid point."""
         if self.name not in self._data_dict:
 
             def data_helper() -> np.ndarray:
@@ -94,32 +93,32 @@ class Data(BaseProperties):
 
     @property
     def xdata(self) -> Union[np.ndarray, da.Array]:
-        """Retrieve the grid x (i.e. X1) coordinates."""
+        """Retrieve the x (i.e. X1) grid coordinates."""
         return self._compute_coordinates("X1 AXIS", self._get_data_shape()[0])
 
     @property
     def ydata(self) -> Union[np.ndarray, da.Array]:
-        """Retrieve the grid y (i.e. X2) coordinates."""
+        """Retrieve the y (i.e. X2) grid coordinates."""
         return self._compute_coordinates("X2 AXIS", self._get_data_shape()[1])
 
     @property
     def zdata(self) -> Union[np.ndarray, da.Array]:
-        """Retrieve the grid z (i.e. X3) coordinates."""
+        """Retrieve the z (i.e. X3) grid coordinates."""
         return self._compute_coordinates("X3 AXIS", self._get_data_shape()[2])
 
     @property
     def xlimdata(self) -> Union[np.ndarray, da.Array]:
-        """Retrieve the grid x (i.e. X1) axis limits."""
+        """Retrieve the x (i.e. X1) grid axis limits."""
         return self._get_coordinate_limits("X1 AXIS")
 
     @property
     def ylimdata(self) -> Union[np.ndarray, da.Array]:
-        """Retrieve the grid y (i.e. X2) axis limits."""
+        """Retrieve the y (i.e. X2) grid axis limits."""
         return self._get_coordinate_limits("X2 AXIS")
 
     @property
     def zlimdata(self) -> Union[np.ndarray, da.Array]:
-        """Retrieve the grid z (i.e. X3) axis limits."""
+        """Retrieve the z (i.e. X3) grid axis limits."""
         return self._get_coordinate_limits("X3 AXIS")
 
     def plot(self,
@@ -139,7 +138,24 @@ class Data(BaseProperties):
         slice_axis: Literal["x","y","z"] = "x",
         **kwargs
     ) -> Tuple[Axes, Union[Line2D, QuadMesh]]:
-        """Plot the data."""
+        """
+        Plot 1D, 2D, or 3D data.
+
+        Parameters:
+        - ax: Optional[Axes] - Matplotlib Axes instance.
+        - dpi: int - Resolution of the plot.
+        - title: Optional[str] - Plot title.
+        - xlabel, ylabel, zlabel: Optional[str] - Axis labels.
+        - xlim, ylim, zlim: Optional[tuple] - Axis limits.
+        - colormap: str - Colormap name for 2D/3D data.
+        - show_colorbar: bool - Whether to display the colorbar.
+        - colorbar_label: Optional[str] - Label for the colorbar.
+        - slice_axis: Literal["x", "y", "z"] - Slice axis for 3D data.
+        - **kwargs: Additional keyword arguments for the plotting functions.
+
+        Returns:
+        - Tuple[Axes, Union[Line2D, QuadMesh]]: Matplotlib Axes and plot object.
+        """
 
         num_dimensions = len(self._get_data_shape())
         if not 1 <= num_dimensions <= 3:
@@ -231,7 +247,7 @@ class Data(BaseProperties):
 
             ax_slider = plt.axes([0.2, 0.05, 0.6, 0.03])
             data_shape = data.shape[{"x": 0, "y": 1, "z": 2}[slice_axis]]
-            slider = Slider(ax_slider, "Slice index", 0, data_shape-1, valinit=initial_slice, valstep=1)
+            slider = Slider(ax_slider, f"{slice_axis.capitalize()} axis slice", 0, data_shape-1, valinit=initial_slice, valstep=1)
 
             def update(val):
                 slice_index = int(slider.val)
