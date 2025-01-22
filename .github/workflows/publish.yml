@@ -2,8 +2,10 @@ name: Publish Python Package
 
 on:
   push:
+    branches:
+      - feature/pypi
     tags:
-      - 'v*.*.*'
+      - 'v*'
 
 jobs:
   build:
