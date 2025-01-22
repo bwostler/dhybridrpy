@@ -1,5 +1,5 @@
 [project]
-name = "dhybridrpy"
+name = "dhybridrpy-test"
 version = "1"
 description = "A Python package to easily read input + output data from dHybridR."
 readme = "README.md"
