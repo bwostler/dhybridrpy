@@ -2,9 +2,10 @@ import h5py
 import numpy as np
 import dask.array as da
 import matplotlib.pyplot as plt
+import operator
+
 from matplotlib.widgets import Slider
 from collections import defaultdict
-
 from matplotlib.axes import Axes
 from matplotlib.collections import QuadMesh, PathCollection
 from matplotlib.lines import Line2D
@@ -36,15 +37,24 @@ class Data(BaseProperties):
         "etx1": ("$x$", "$e_{tot}$"), "etx2": ("$y$", "$e_{tot}$"), "etx3": ("$z$", "$e_{tot}$")
     })
 
+    BINARY_OP_SYMBOLS = {
+        "add": "+",
+        "sub": "-",
+        "mul": "*",
+        "truediv": "/",
+        "pow": "**"
+    }
+
     def __init__(self, file_path: str, name: str, timestep: int, lazy: bool):
         super().__init__(file_path, name, timestep, lazy)
         self._plot_title = f"{name} at timestep {timestep}"
+        self._derived_file_path = None
         self._data_shape = None
         self._data_dtype = None
 
     def _get_coordinate_limits(self, axis_name: str) -> np.ndarray:
         if axis_name not in self._data_dict:
-            with h5py.File(self.file_path, "r") as file:
+            with h5py.File(self.file_path if self.file_path else self._derived_file_path, "r") as file:
                 self._data_dict[axis_name] = file["AXIS"][axis_name][:]
         return self._data_dict[axis_name]
 
@@ -60,7 +70,7 @@ class Data(BaseProperties):
     def _get_data_shape(self) -> tuple:
         """Retrieve the shape of the data without loading it."""
         if self._data_shape is None:
-            with h5py.File(self.file_path, "r") as file:
+            with h5py.File(self.file_path if self.file_path else self._derived_file_path, "r") as file:
                 # Reverse the data shape to be consistent with transpose in data @property
                 self._data_shape = file["DATA"].shape[::-1]
         return self._data_shape
@@ -68,7 +78,7 @@ class Data(BaseProperties):
     def _get_data_dtype(self) -> np.dtype:
         """Retrieve the type of the data without loading it."""
         if self._data_dtype is None:
-            with h5py.File(self.file_path, "r") as file:
+            with h5py.File(self.file_path if self.file_path else self._derived_file_path, "r") as file:
                 self._data_dtype = file["DATA"].dtype
         return self._data_dtype
 
@@ -76,9 +86,8 @@ class Data(BaseProperties):
     def data(self) -> Union[np.ndarray, da.Array]:
         """Retrieve the data at each grid point."""
         if self.name not in self._data_dict:
-
             def data_helper() -> np.ndarray:
-                with h5py.File(self.file_path, "r") as file:
+                with h5py.File(self.file_path if self.file_path else self._derived_file_path, "r") as file:
                     return file["DATA"][:].T
 
             if self.lazy:
@@ -268,6 +277,51 @@ class Data(BaseProperties):
             slider.on_changed(update)
             return ax, mesh
 
+    # Allow basic mathematics with Data objects
+    def _apply_operation(self, other, op):
+        if isinstance(other, Data) and not isinstance(other, self.__class__):
+            raise TypeError(
+                f"Operation not allowed between {self.__class__.__name__} and {other.__class__.__name__} objects."
+            )
+
+        if isinstance(other, Data):
+            if self.timestep != other.timestep:
+                raise ValueError("Operation must be done between objects at the same timestep.")
+
+            result_data = op(self.data, other.data)
+            other_name = other.name
+        else:
+            result_data = op(self.data, other)
+            other_name = str(other)
+
+        operation_name = op.__name__.strip('_')
+        if operation_name in self.BINARY_OP_SYMBOLS:
+            operation_name = self.BINARY_OP_SYMBOLS[operation_name]
+
+        return self._create_new_instance(result_data, operation=operation_name, other_name=other_name, other_obj=other)
+
+    def _create_new_instance(self, result_data, operation, other_name, other_obj=None):
+        new_name = f"({self.name}{operation}{other_name})"
+        new_instance = self.__class__(None, new_name, self.timestep, self.lazy)
+        new_instance._data_dict[new_name] = result_data
+        new_instance._derived_file_path = self._derived_file_path if self._derived_file_path else self.file_path
+        return new_instance
+
+    def __add__(self, other):
+        return self._apply_operation(other, operator.add)
+
+    def __sub__(self, other):
+        return self._apply_operation(other, operator.sub)
+
+    def __mul__(self, other):
+        return self._apply_operation(other, operator.mul)
+
+    def __truediv__(self, other):
+        return self._apply_operation(other, operator.truediv)
+
+    def __pow__(self, other):
+        return self._apply_operation(other, operator.pow)
+
 
 class Field(Data):
     def __init__(self, file_path: str, name: str, timestep: int, lazy: bool, field_type: str):
@@ -275,12 +329,36 @@ class Field(Data):
         self.type = field_type # The type of field, e.g., "External"
         self._plot_title += f" (type = {self.type})"
 
+    def _create_new_instance(self, result_data, operation, other_name, other_obj=None):
+        if isinstance(other_obj, Field) and self.type != other_obj.type:
+            raise ValueError(f"Incompatible Field types: '{self.type}' and '{other_obj.type}'.")
+
+        new_name = f"({self.name}{operation}{other_name})"
+        new_instance = Field(None, new_name, self.timestep, self.lazy, self.type)
+        new_instance._data_dict[new_name] = result_data
+        new_instance._derived_file_path = self._derived_file_path if self._derived_file_path else self.file_path
+        new_instance._plot_title = self._plot_title.replace(self.name, new_name)
+
+        return new_instance
+
 
 class Phase(Data):
     def __init__(self, file_path: str, name: str, timestep: int, lazy: bool, species: Union[int, str]):
         super().__init__(file_path, name, timestep, lazy)
         self.species = species
         self._plot_title += f" (species = {self.species})"
+
+    def _create_new_instance(self, result_data, operation, other_name, other_obj=None):
+        if isinstance(other_obj, Phase) and self.species != other_obj.species:
+            raise ValueError(f"Incompatible Phase species: '{self.species}' and '{other_obj.species}'.")
+
+        new_name = f"({self.name}{operation}{other_name})"
+        new_instance = Phase(None, new_name, self.timestep, self.lazy, self.species)
+        new_instance._data_dict[new_name] = result_data
+        new_instance._derived_file_path = self._derived_file_path if self._derived_file_path else self.file_path
+        new_instance._plot_title = self._plot_title.replace(self.name, new_name)
+
+        return new_instance
 
 
 class Raw(BaseProperties):
@@ -292,7 +370,7 @@ class Raw(BaseProperties):
     def dict(self) -> dict:
         """Retrieve a dictionary of the raw file's keys and values."""
         if not self._data_dict:
-            with h5py.File(self.file_path, "r") as file:
+            with h5py.File(None, "r") as file:
                 def dict_helper():
                     with h5py.File(self.file_path, "r") as f:
                         return f[key][:]
