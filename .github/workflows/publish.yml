@@ -5,14 +5,16 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: Set up Python
+    - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
-        python-version: '3.12'
+        python-version: ${{ matrix.python-version }}
 
     - name: Install build dependencies
       run: |
@@ -25,25 +27,27 @@ jobs:
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: dist-packages
+        name: dist-packages-${{ matrix.python-version }}
         path: dist/
 
   test:
     needs: build
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: Set up Python
+    - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
-        python-version: '3.12'
+        python-version: ${{ matrix.python-version }}
 
     - name: Download build artifacts
       uses: actions/download-artifact@v4
       with:
-        name: dist-packages
+        name: dist-packages-${{ matrix.python-version }}
         path: dist/
 
     - name: Install dependencies
@@ -62,19 +66,19 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.x'
+        python-version: '3.13'  # Use stable version for publishing
 
-    - name: Download build artifacts
+    - name: Download all build artifacts
       uses: actions/download-artifact@v4
       with:
-        name: dist-packages
+        pattern: dist-packages-*
         path: dist/
+        merge-multiple: true
 
     - name: Publish package to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
