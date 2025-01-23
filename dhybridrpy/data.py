@@ -141,21 +141,22 @@ class Data(BaseProperties):
         """
         Plot 1D, 2D, or 3D data.
 
-        Parameters:
-        - ax: Optional[Axes] - Matplotlib Axes instance.
-        - dpi: int - Resolution of the plot.
-        - title: Optional[str] - Plot title.
-        - xlabel, ylabel, zlabel: Optional[str] - Axis labels.
-        - xlim, ylim, zlim: Optional[tuple] - Axis limits.
-        - colormap: str - Colormap name for 2D/3D data.
-        - show_colorbar: bool - Whether to display the colorbar.
-        - colorbar_label: Optional[str] - Label for the colorbar.
-        - slice_axis: Literal["x", "y", "z"] - Slice axis for 3D data.
-        - **kwargs: Additional keyword arguments for the plotting functions.
+        Args:
+            ax (Axes, optional): Matplotlib Axes instance.
+            dpi (int): Resolution of the plot.
+            title (str, optional): Plot title.
+            xlabel, ylabel, zlabel (str, optional): Axis labels.
+            xlim, ylim, zlim (tuple, optional): Axis limits.
+            colormap (str): Colormap name for 2D/3D data.
+            show_colorbar (bool): Whether to display the colorbar.
+            colorbar_label (str, optional): Label for the colorbar.
+            slice_axis (str): Slice axis for 3D data. Must be "x", "y", or "z".
+            **kwargs: Additional keyword arguments for the plotting functions.
 
         Returns:
-        - Tuple[Axes, Union[Line2D, QuadMesh]]: Matplotlib Axes and plot object.
+            Tuple[Axes, Union[Line2D, QuadMesh]]: Matplotlib Axes and plot object.
         """
+
 
         num_dimensions = len(self._get_data_shape())
         if not 1 <= num_dimensions <= 3:

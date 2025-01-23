@@ -1,8 +1,0 @@
-# Commit changes
-git add changedFile
-git commit -m "Bump version to v(versionNumber)"
-
-# Create and push new tag
-git tag v(versionNumber)
-git push origin main
-git push origin v(versionNumber)

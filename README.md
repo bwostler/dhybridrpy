@@ -1,5 +1,7 @@
 # dhybridrpy
 
+![PyPI version](https://img.shields.io/pypi/v/dhybridrpy?label=PyPI&color=blue)
+
 `dhybridrpy` allows you to easily load and plot data from `dHybridR` simulations. It provides programmatic access to simulation input and output data and the ability to quickly visualize that data.
 
 ## Features
@@ -10,11 +12,10 @@
 
 ## Installation
 
-To install `dhybridrpy`, clone the repository and pip-install:
+The latest package version can be installed via pip:
 
 ```bash
-git clone https://github.com/bwostler/dhybridrpy.git
-pip install ./dhybridrpy
+pip install dhybridrpy
 ```
 
 ## Usage

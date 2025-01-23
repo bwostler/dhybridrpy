@@ -71,11 +71,11 @@ class DHybridrpy:
     """
     Class for processing dHybridR input and output files.
 
-    Parameters:
-    - input_file: str - Path to the dHybridR input file.
-    - output_folder: str - Path to the dHybridR output folder.
-    - lazy: Optional[bool] - Enables lazy loading of data via the dask library.
-    - exclude_timestep_zero: Optional[bool] - Excludes the zeroth timestep, if present, from the list of timesteps.
+    Args:
+        input_file (str): Path to the dHybridR input file.
+        output_folder (str): Path to the dHybridR output folder.
+        lazy (bool, optional): Enables lazy loading of data via the dask library.
+        exclude_timestep_zero (bool, optional): Excludes the zeroth timestep, if present, from the list of timesteps.
     """
 
     _FIELD_MAPPING = {
