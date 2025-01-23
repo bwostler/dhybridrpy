@@ -53,7 +53,7 @@ jobs:
 
     - name: Run example notebook
       run: |
-        pip install ipython
+        pip install ipython nbconvert
         cd examples
         ipython examples.ipynb
 
