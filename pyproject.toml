@@ -19,3 +19,17 @@ license = {file = "LICENSE.txt"}
 [build-system]
 requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0",
+    "pytest-cov",
+    "pytest-xdist",
+]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --cov=dhybridrpy"
+testpaths = [
+    "tests",
+]
