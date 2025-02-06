@@ -4,10 +4,17 @@ import logging
 import numpy as np
 import f90nml
 import io
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 
 from .containers import Timestep
 from .data import Field, Phase, Raw
 from f90nml import Namelist
+from matplotlib.widgets import Slider
+from matplotlib.collections import QuadMesh
+from matplotlib.axes import Axes
+from matplotlib.backend_bases import KeyEvent
+from typing import Optional, Tuple
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -97,6 +104,8 @@ class DHybridrpy:
         self.output_folder = output_folder
         self.lazy = lazy
         self.exclude_timestep_zero = exclude_timestep_zero
+        self._FIELD_NAMES = []
+        self._PHASE_NAMES = []
         self._timesteps_dict = {}
         self._sorted_timesteps = None
         self._validate_paths()
@@ -137,6 +146,7 @@ class DHybridrpy:
             return
 
         name = f"{prefix}{component}"
+        self._FIELD_NAMES.append(name)
         if timestep not in self._timesteps_dict:
             self._timesteps_dict[timestep] = Timestep(timestep)
         field = Field(os.path.join(dirpath, filename), name, timestep, self.lazy, field_type)
@@ -162,6 +172,7 @@ class DHybridrpy:
         if name == "x3x2x1" and "pres" in filename:
             name = "P"
         
+        self._PHASE_NAMES.append(name)
         species = int(self._SPECIES_PATTERN.search(species_str).group()) if species_str != "Total" else species_str
         if timestep not in self._timesteps_dict:
             self._timesteps_dict[timestep] = Timestep(timestep)
@@ -207,3 +218,65 @@ class DHybridrpy:
         if self.exclude_timestep_zero and len(self._sorted_timesteps) > 0 and self._sorted_timesteps[0] == 0:
             return self._sorted_timesteps[1:]
         return self._sorted_timesteps
+
+    def animate(self, data_name: str, timesteps: Optional[np.ndarray] = None, **kwargs) -> None:
+
+        if timesteps is None:
+            timesteps = self.timesteps()
+
+        num_timesteps = len(timesteps)
+        state = {
+            "current_frame": 0,
+            "is_paused": True
+        }
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+        plt.subplots_adjust(bottom=0.25)
+
+        if data_name in self._FIELD_NAMES:
+            container_name = "fields"
+        elif data_name in self._PHASE_NAMES:
+            container_name = "phases"
+        else:
+            raise ValueError(f"Name '{data_name}' is not a known field or phase.")
+
+        initial_timestep = timesteps[state["current_frame"]]
+        data_obj = getattr(getattr(self.timestep(initial_timestep), container_name), data_name)(**kwargs)
+
+        num_dimensions = len(data_obj._get_data_shape())
+        if num_dimensions != 2:
+            raise NotImplementedError("Animations are restricted to 2D data.")
+
+        ax, mesh = data_obj.plot(ax=ax)
+
+        def update_plot(frame: int, ax: Axes, mesh: QuadMesh) -> None:
+            state["current_frame"] = frame
+            data_obj = getattr(getattr(self.timestep(timesteps[frame]), container_name), data_name)(**kwargs)
+            mesh.set_array(data_obj.data.ravel())
+            ax.set_title(data_obj._plot_title)
+            fig.canvas.draw_idle()
+
+        def animate_frame(i: int) -> Tuple[QuadMesh,]:
+            if not state["is_paused"]:
+                new_frame = (state["current_frame"] + 1) % num_timesteps
+                slider.set_val(new_frame)
+            return (mesh,)
+
+        def on_key(event: KeyEvent) -> None:
+            if event.key == " ":
+                state["is_paused"] = not state["is_paused"]
+            elif event.key == "right":
+                new_frame = (state["current_frame"] + 1) % num_timesteps
+                slider.set_val(new_frame)
+            elif event.key == "left":
+                new_frame = (state["current_frame"] - 1) % num_timesteps
+                slider.set_val(new_frame)
+
+        ax_slider = plt.axes([0.2, 0.1, 0.6, 0.03])
+        slider = Slider(ax_slider, "Frame", 0, num_timesteps - 1, valinit=state["current_frame"], valstep=1, valfmt="%d")
+        slider.on_changed(lambda val: update_plot(val, ax, mesh))
+        fig.canvas.mpl_connect("key_press_event", on_key)
+
+        ani = animation.FuncAnimation(fig, animate_frame, interval=200, blit=True)
+        plt.show()
+
