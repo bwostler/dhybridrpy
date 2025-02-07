@@ -10,7 +10,7 @@ import matplotlib.animation as animation
 from .containers import Timestep
 from .data import Field, Phase, Raw
 from f90nml import Namelist
-from matplotlib.widgets import Slider
+from matplotlib.widgets import Slider, Button
 from matplotlib.collections import QuadMesh
 from matplotlib.axes import Axes
 from matplotlib.backend_bases import KeyEvent
@@ -219,7 +219,15 @@ class DHybridrpy:
             return self._sorted_timesteps[1:]
         return self._sorted_timesteps
 
-    def animate(self, data_name: str, timesteps: Optional[np.ndarray] = None, **kwargs) -> None:
+    def animate(
+        self, 
+        data_name: str, 
+        timesteps: Optional[np.ndarray] = None, 
+        animation_interval: int = 200,
+        **kwargs
+    ) -> None:
+
+        cache = {}
 
         if timesteps is None:
             timesteps = self.timesteps()
@@ -230,7 +238,7 @@ class DHybridrpy:
             "is_paused": True
         }
 
-        fig, ax = plt.subplots(figsize=(8, 6))
+        fig, ax = plt.subplots(figsize=(8,6))
         plt.subplots_adjust(bottom=0.25)
 
         if data_name in self._FIELD_NAMES:
@@ -242,6 +250,7 @@ class DHybridrpy:
 
         initial_timestep = timesteps[state["current_frame"]]
         data_obj = getattr(getattr(self.timestep(initial_timestep), container_name), data_name)(**kwargs)
+        cache[state["current_frame"]] = data_obj.data, data_obj._plot_title
 
         num_dimensions = len(data_obj._get_data_shape())
         if num_dimensions != 2:
@@ -249,22 +258,59 @@ class DHybridrpy:
 
         ax, mesh = data_obj.plot(ax=ax)
 
-        def update_plot(frame: int, ax: Axes, mesh: QuadMesh) -> None:
+        def update_plot(frame: int, ax, mesh) -> None:
             state["current_frame"] = frame
-            data_obj = getattr(getattr(self.timestep(timesteps[frame]), container_name), data_name)(**kwargs)
-            mesh.set_array(data_obj.data.ravel())
-            ax.set_title(data_obj._plot_title)
+
+            if frame in cache:
+                data, plot_title = cache[frame]
+            else:
+                ts = timesteps[frame]
+                data_obj = getattr(getattr(self.timestep(ts), container_name), data_name)(**kwargs)
+                data, plot_title = data_obj.data, data_obj._plot_title
+                cache[frame] = data, plot_title
+
+            mesh.set_array(data.ravel())
+            ax.set_title(plot_title)
             fig.canvas.draw_idle()
 
-        def animate_frame(i: int) -> Tuple[QuadMesh,]:
+        def animate_frame(i: int) -> Tuple:
             if not state["is_paused"]:
                 new_frame = (state["current_frame"] + 1) % num_timesteps
                 slider.set_val(new_frame)
             return (mesh,)
+        
+        ax_slider = plt.axes([0.2, 0.1, 0.6, 0.03])
+        slider = Slider(
+            ax_slider,
+            "Frame",
+            0,
+            num_timesteps-1,
+            valinit=state["current_frame"],
+            valstep=1,
+            valfmt="%d"
+        )
+        slider.on_changed(lambda val: update_plot(val, ax, mesh))
 
-        def on_key(event: KeyEvent) -> None:
+        ax_button = plt.axes([0.05, 0.95, 0.1, 0.04])
+        play_pause_button = Button(ax_button, "Play" if state["is_paused"] else "Pause")
+
+        def update_button_text():
+            if state["is_paused"]:
+                play_pause_button.label.set_text("Play")
+            else:
+                play_pause_button.label.set_text("Pause")
+            fig.canvas.draw_idle()
+
+        def on_button_clicked(event):
+            state["is_paused"] = not state["is_paused"]
+            update_button_text()
+
+        play_pause_button.on_clicked(on_button_clicked)
+
+        def on_key(event) -> None:
             if event.key == " ":
                 state["is_paused"] = not state["is_paused"]
+                update_button_text()
             elif event.key == "right":
                 new_frame = (state["current_frame"] + 1) % num_timesteps
                 slider.set_val(new_frame)
@@ -272,11 +318,7 @@ class DHybridrpy:
                 new_frame = (state["current_frame"] - 1) % num_timesteps
                 slider.set_val(new_frame)
 
-        ax_slider = plt.axes([0.2, 0.1, 0.6, 0.03])
-        slider = Slider(ax_slider, "Frame", 0, num_timesteps - 1, valinit=state["current_frame"], valstep=1, valfmt="%d")
-        slider.on_changed(lambda val: update_plot(val, ax, mesh))
         fig.canvas.mpl_connect("key_press_event", on_key)
 
-        ani = animation.FuncAnimation(fig, animate_frame, interval=200, blit=True)
+        ani = animation.FuncAnimation(fig, animate_frame, interval=animation_interval, blit=True)
         plt.show()
-
