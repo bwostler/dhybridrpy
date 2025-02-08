@@ -14,6 +14,7 @@ from matplotlib.widgets import Slider, Button
 from matplotlib.collections import QuadMesh
 from matplotlib.axes import Axes
 from matplotlib.backend_bases import KeyEvent
+from matplotlib.animation import FuncAnimation
 from typing import Optional, Tuple
 
 logging.basicConfig(level=logging.INFO)
@@ -224,10 +225,10 @@ class DHybridrpy:
         data_name: str, 
         timesteps: Optional[np.ndarray] = None, 
         animation_interval: int = 200,
+        colorbar_min: Optional[float] = None,
+        colorbar_max: Optional[float] = None,
         **kwargs
-    ) -> None:
-
-        cache = {}
+    ) -> Tuple[Axes, FuncAnimation]:
 
         if timesteps is None:
             timesteps = self.timesteps()
@@ -249,31 +250,41 @@ class DHybridrpy:
             raise ValueError(f"Name '{data_name}' is not a known field or phase.")
 
         initial_timestep = timesteps[state["current_frame"]]
-        data_obj = getattr(getattr(self.timestep(initial_timestep), container_name), data_name)(**kwargs)
-        cache[state["current_frame"]] = data_obj.data, data_obj._plot_title
+        initial_data_obj = getattr(getattr(self.timestep(initial_timestep), container_name), data_name)(**kwargs)
+        cache = {
+            state["current_frame"]: (initial_data_obj.data, initial_data_obj._plot_title)
+        }
 
-        num_dimensions = len(data_obj._get_data_shape())
+        num_dimensions = len(initial_data_obj._get_data_shape())
         if num_dimensions != 2:
             raise NotImplementedError("Animations are restricted to 2D data.")
 
-        ax, mesh = data_obj.plot(ax=ax)
+        # Cache data before displaying animation
+        for frame in np.arange(num_timesteps):
+            if frame == state["current_frame"]:
+                continue
+            ts = timesteps[frame]
+            data_obj = getattr(getattr(self.timestep(ts), container_name), data_name)(**kwargs)
+            cache[frame] = data_obj.data, data_obj._plot_title
 
-        def update_plot(frame: int, ax, mesh) -> None:
+        if colorbar_min is None or colorbar_max is None:
+            # Compute colorbar bounds from cached data
+            all_data = np.concatenate([data.ravel() for data, _ in cache.values()])
+            if colorbar_min is None:
+                colorbar_min = np.percentile(all_data, 5)
+            if colorbar_max is None:
+                colorbar_max = np.percentile(all_data, 95)
+
+        _, mesh = initial_data_obj.plot(ax=ax, vmin=colorbar_min, vmax=colorbar_max)
+
+        def update_plot(frame: int, ax: Axes, mesh: QuadMesh) -> None:
             state["current_frame"] = frame
-
-            if frame in cache:
-                data, plot_title = cache[frame]
-            else:
-                ts = timesteps[frame]
-                data_obj = getattr(getattr(self.timestep(ts), container_name), data_name)(**kwargs)
-                data, plot_title = data_obj.data, data_obj._plot_title
-                cache[frame] = data, plot_title
-
+            data, plot_title = cache[frame]
             mesh.set_array(data.ravel())
             ax.set_title(plot_title)
             fig.canvas.draw_idle()
 
-        def animate_frame(i: int) -> Tuple:
+        def animate_frame(i: int) -> Tuple[QuadMesh,]:
             if not state["is_paused"]:
                 new_frame = (state["current_frame"] + 1) % num_timesteps
                 slider.set_val(new_frame)
@@ -291,7 +302,7 @@ class DHybridrpy:
         )
         slider.on_changed(lambda val: update_plot(val, ax, mesh))
 
-        ax_button = plt.axes([0.05, 0.95, 0.1, 0.04])
+        ax_button = plt.axes([0.075, 0.95, 0.1, 0.04])
         play_pause_button = Button(ax_button, "Play" if state["is_paused"] else "Pause")
 
         def update_button_text():
@@ -301,13 +312,13 @@ class DHybridrpy:
                 play_pause_button.label.set_text("Pause")
             fig.canvas.draw_idle()
 
-        def on_button_clicked(event):
+        def on_button_clicked(event: KeyEvent) -> None:
             state["is_paused"] = not state["is_paused"]
             update_button_text()
 
         play_pause_button.on_clicked(on_button_clicked)
 
-        def on_key(event) -> None:
+        def on_key(event: KeyEvent) -> None:
             if event.key == " ":
                 state["is_paused"] = not state["is_paused"]
                 update_button_text()
@@ -319,6 +330,8 @@ class DHybridrpy:
                 slider.set_val(new_frame)
 
         fig.canvas.mpl_connect("key_press_event", on_key)
-
-        ani = animation.FuncAnimation(fig, animate_frame, interval=animation_interval, blit=True)
-        plt.show()
+        ani = animation.FuncAnimation(
+            fig, animate_frame, interval=animation_interval, blit=False, save_count=num_timesteps
+        )
+        
+        return ax, ani
