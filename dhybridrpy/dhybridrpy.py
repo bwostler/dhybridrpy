@@ -15,7 +15,7 @@ from matplotlib.collections import QuadMesh
 from matplotlib.axes import Axes
 from matplotlib.backend_bases import KeyEvent
 from matplotlib.animation import FuncAnimation
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Callable, List, Union
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -105,8 +105,8 @@ class DHybridrpy:
         self.output_folder = output_folder
         self.lazy = lazy
         self.exclude_timestep_zero = exclude_timestep_zero
-        self._FIELD_NAMES = []
-        self._PHASE_NAMES = []
+        self._FIELD_NAMES = set()
+        self._PHASE_NAMES = set()
         self._timesteps_dict = {}
         self._sorted_timesteps = None
         self._validate_paths()
@@ -147,7 +147,7 @@ class DHybridrpy:
             return
 
         name = f"{prefix}{component}"
-        self._FIELD_NAMES.append(name)
+        self._FIELD_NAMES.add(name)
         if timestep not in self._timesteps_dict:
             self._timesteps_dict[timestep] = Timestep(timestep)
         field = Field(os.path.join(dirpath, filename), name, timestep, self.lazy, field_type)
@@ -173,7 +173,7 @@ class DHybridrpy:
         if name == "x3x2x1" and "pres" in filename:
             name = "P"
         
-        self._PHASE_NAMES.append(name)
+        self._PHASE_NAMES.add(name)
         species = int(self._SPECIES_PATTERN.search(species_str).group()) if species_str != "Total" else species_str
         if timestep not in self._timesteps_dict:
             self._timesteps_dict[timestep] = Timestep(timestep)
@@ -236,7 +236,7 @@ class DHybridrpy:
         num_timesteps = len(timesteps)
         state = {
             "current_frame": 0,
-            "is_paused": True
+            "is_paused": False
         }
 
         fig, ax = plt.subplots(figsize=(8,6))
@@ -302,7 +302,7 @@ class DHybridrpy:
         )
         slider.on_changed(lambda val: update_plot(val, ax, mesh))
 
-        ax_button = plt.axes([0.075, 0.95, 0.1, 0.04])
+        ax_button = plt.axes([0.1, 0.95, 0.1, 0.04])
         play_pause_button = Button(ax_button, "Play" if state["is_paused"] else "Pause")
 
         def update_button_text():
@@ -335,3 +335,29 @@ class DHybridrpy:
         )
         
         return ax, ani
+
+    def create(self, data_name: str, func: Callable[..., np.ndarray], objs: List[Union[Field, Phase]]) -> Union[Field, Phase]:
+        first_obj, first_obj_type, timestep = objs[0], type(objs[0]), objs[0].timestep
+
+        if first_obj_type is Field:
+            data_dict = self._timesteps_dict[timestep]._fields_dict[first_obj.type]
+            if any(field.name == data_name for field in data_dict.values()):
+                raise ValueError(f"Field '{data_name}' already exists at timestep {timestep}. Please rename your field.")
+
+            self._FIELD_NAMES.add(data_name)
+            new_field = Field.create_field(data_name, func, objs)
+            self._timesteps_dict[timestep].add_field(new_field)
+            return new_field
+
+        elif first_obj_type is Phase:
+            data_dict = self._timesteps_dict[timestep]._phases_dict[first_obj.species]
+            if any(phase.name == data_name for phase in data_dict.values()):
+                raise ValueError(f"Field '{data_name}' already exists at timestep {timestep}. Please rename your field.")
+
+            self._PHASE_NAMES.add(data_name)
+            new_phase = Phase.create_phase(data_name, func, objs)
+            self._timesteps_dict[timestep].add_phase(new_phase)
+            return new_phase
+
+        else:
+            raise TypeError(f"Object type '{obj_type} is not a Field or Phase.")

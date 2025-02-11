@@ -8,7 +8,7 @@ from collections import defaultdict
 from matplotlib.axes import Axes
 from matplotlib.collections import QuadMesh, PathCollection
 from matplotlib.lines import Line2D
-from typing import Tuple, Union, Optional, Literal
+from typing import Tuple, Union, Optional, Literal, List, Callable
 from dask.delayed import delayed
 
 class BaseProperties:
@@ -43,10 +43,11 @@ class Data(BaseProperties):
         self._data_dtype = None
 
     def _get_coordinate_limits(self, axis_name: str) -> np.ndarray:
-        if axis_name not in self._data_dict:
+        key = f"{axis_name} lims"
+        if key not in self._data_dict:
             with h5py.File(self.file_path, "r") as file:
-                self._data_dict[axis_name] = file["AXIS"][axis_name][:]
-        return self._data_dict[axis_name]
+                self._data_dict[key] = file["AXIS"][axis_name][:]
+        return self._data_dict[key]
 
     def _compute_coordinates(self, axis_name: str, size: int) -> Union[np.ndarray, da.Array]:
         key = f"{axis_name} coords"
@@ -276,12 +277,78 @@ class Field(Data):
         self.type = field_type # The type of field, e.g., "External"
         self._plot_title += f" (type = {self.type})"
 
+    @classmethod
+    def create_field(cls, name: str, func: Callable[..., np.ndarray], fields: List['Field']) -> 'Field':
+        old_field = fields[0]
+        if any(field.timestep != old_field.timestep for field in fields):
+            raise ValueError("All fields must be from the same timestep to create a new field.")
+        
+        new_data = func(*[field.data for field in fields])
+        num_dimensions = len(new_data.shape)
+        
+        new_field = cls(
+            file_path="", # No file path since this is a derived field
+            name=name,
+            timestep=old_field.timestep,
+            lazy=old_field.lazy,
+            field_type=old_field.type
+        )
+        new_field._data_dict[name] = new_data
+        new_field._data_dict["X1 AXIS coords"] = old_field.xdata
+        new_field._data_dict["X1 AXIS lims"] = old_field.xlimdata
+        new_field._data_shape = old_field._get_data_shape()
+        new_field._data_dtype = old_field._get_data_dtype()
+
+        if num_dimensions >= 2:
+            new_field._data_dict["X2 AXIS coords"] = old_field.ydata
+            new_field._data_dict["X2 AXIS lims"] = old_field.ylimdata
+        if num_dimensions == 3:
+            new_field._data_dict["X3 AXIS coords"] = old_field.zdata
+            new_field._data_dict["X3 AXIS lims"] = old_field.zlimdata
+    
+        new_field._plot_title = old_field._plot_title.replace(old_field.name, name)
+
+        return new_field
+
 
 class Phase(Data):
     def __init__(self, file_path: str, name: str, timestep: int, lazy: bool, species: Union[int, str]):
         super().__init__(file_path, name, timestep, lazy)
         self.species = species
         self._plot_title += f" (species = {self.species})"
+
+    @classmethod
+    def create_phase(cls, name: str, func: Callable[..., np.ndarray], phases: List['Phase']) -> 'Phase':
+        old_phase = phases[0]
+        if any(phase.timestep != old_phase.timestep for phase in phases):
+            raise ValueError("All phases must be from the same timestep to create a new phase.")
+        
+        new_data = func(*[phase.data for phase in phases])
+        num_dimensions = len(new_data.shape)
+        
+        new_phase = cls(
+            file_path="", # No file path since this is a derived phase
+            name=name,
+            timestep=old_phase.timestep,
+            lazy=old_phase.lazy,
+            species=old_phase.species
+        )
+        new_phase._data_dict[name] = new_data
+        new_phase._data_dict["X1 AXIS coords"] = old_phase.xdata
+        new_phase._data_dict["X1 AXIS lims"] = old_phase.xlimdata
+        new_phase._data_shape = old_phase._get_data_shape()
+        new_phase._data_dtype = old_phase._get_data_dtype()
+
+        if num_dimensions >= 2:
+            new_phase._data_dict["X2 AXIS coords"] = old_phase.ydata
+            new_phase._data_dict["X2 AXIS lims"] = old_phase.ylimdata
+        if num_dimensions == 3:
+            new_phase._data_dict["X3 AXIS coords"] = old_phase.zdata
+            new_phase._data_dict["X3 AXIS lims"] = old_phase.zlimdata
+    
+        new_phase._plot_title = old_phase._plot_title.replace(old_phase.name, name)
+
+        return new_phase
 
 
 class Raw(BaseProperties):
