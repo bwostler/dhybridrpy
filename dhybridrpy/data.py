@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import h5py
 import numpy as np
 import dask.array as da
@@ -143,21 +145,20 @@ class Data(BaseProperties):
         Plot 1D, 2D, or 3D data.
 
         Args:
-            ax (Axes, optional): Matplotlib Axes instance.
-            dpi (int): Resolution of the plot.
-            title (str, optional): Plot title.
-            xlabel, ylabel, zlabel (str, optional): Axis labels.
-            xlim, ylim, zlim (tuple, optional): Axis limits.
-            colormap (str): Colormap name for 2D/3D data.
-            show_colorbar (bool): Whether to display the colorbar.
-            colorbar_label (str, optional): Label for the colorbar.
-            slice_axis (str): Slice axis for 3D data. Must be "x", "y", or "z".
+            ax: Matplotlib Axes instance.
+            dpi: Resolution of the plot.
+            title: Plot title.
+            xlabel, ylabel, zlabel: Axis labels.
+            xlim, ylim, zlim: Axis limits.
+            colormap: Colormap name for 2D/3D data.
+            show_colorbar: Whether to display the colorbar.
+            colorbar_label: Label for the colorbar.
+            slice_axis: Slice axis for 3D data. Must be "x", "y", or "z".
             **kwargs: Additional keyword arguments for the plotting functions.
 
         Returns:
-            Tuple[Axes, Union[Line2D, QuadMesh]]: Matplotlib Axes and plot object.
+            Matplotlib Axes and plot object.
         """
-
 
         num_dimensions = len(self._get_data_shape())
         if not 1 <= num_dimensions <= 3:
@@ -251,7 +252,7 @@ class Data(BaseProperties):
             data_shape = data.shape[{"x": 0, "y": 1, "z": 2}[slice_axis]]
             slider = Slider(ax_slider, f"{slice_axis.capitalize()} axis slice", 0, data_shape-1, valinit=initial_slice, valstep=1)
 
-            def update(val):
+            def update(val: float) -> None:
                 slice_index = int(slider.val)
                 if slice_axis == "x":
                     data_slice = data[slice_index,:,:]
@@ -270,6 +271,57 @@ class Data(BaseProperties):
             slider.on_changed(update)
             return ax, mesh
 
+    @classmethod
+    def create_derived_object(
+        cls,
+        name: str,
+        func: Callable[..., np.ndarray],
+        base_objects: List[Data],
+        **extra_params
+    ) -> Data:
+        """
+        Create a new derived object from a list of base objects.
+
+        Args:
+            name: Name for the new derived object.
+            func: Function applied to the base object data to create the new data.
+            base_objects: List of base objects to combine.
+            **extra_params: Extra parameters to pass to a subclass constructor.
+
+        Returns:
+            A new derived object.
+        """
+
+        base_object = base_objects[0]
+        if any(obj.timestep != base_object.timestep for obj in base_objects):
+            raise ValueError("All objects must be from the same timestep.")
+
+        new_data = func(*(obj.data for obj in base_objects))
+        num_dimensions = len(new_data.shape)
+
+        new_object = cls(
+            file_path="",
+            name=name,
+            timestep=base_object.timestep,
+            lazy=base_object.lazy,
+            **extra_params
+        )
+        new_object._data_dict[name] = new_data
+        new_object._data_dict["X1 AXIS coords"] = base_object.xdata
+        new_object._data_dict["X1 AXIS lims"] = base_object.xlimdata
+        new_object._data_shape = base_object._get_data_shape()
+        new_object._data_dtype = base_object._get_data_dtype()
+
+        if num_dimensions >= 2:
+            new_object._data_dict["X2 AXIS coords"] = base_object.ydata
+            new_object._data_dict["X2 AXIS lims"] = base_object.ylimdata
+        if num_dimensions == 3:
+            new_object._data_dict["X3 AXIS coords"] = base_object.zdata
+            new_object._data_dict["X3 AXIS lims"] = base_object.zlimdata
+
+        new_object._plot_title = base_object._plot_title.replace(base_object.name, name)
+        return new_object
+
 
 class Field(Data):
     def __init__(self, file_path: str, name: str, timestep: int, lazy: bool, field_type: str):
@@ -278,37 +330,14 @@ class Field(Data):
         self._plot_title += f" (type = {self.type})"
 
     @classmethod
-    def create_field(cls, name: str, func: Callable[..., np.ndarray], fields: List['Field']) -> 'Field':
-        old_field = fields[0]
-        if any(field.timestep != old_field.timestep for field in fields):
-            raise ValueError("All fields must be from the same timestep to create a new field.")
-        
-        new_data = func(*[field.data for field in fields])
-        num_dimensions = len(new_data.shape)
-        
-        new_field = cls(
-            file_path="", # No file path since this is a derived field
-            name=name,
-            timestep=old_field.timestep,
-            lazy=old_field.lazy,
-            field_type=old_field.type
-        )
-        new_field._data_dict[name] = new_data
-        new_field._data_dict["X1 AXIS coords"] = old_field.xdata
-        new_field._data_dict["X1 AXIS lims"] = old_field.xlimdata
-        new_field._data_shape = old_field._get_data_shape()
-        new_field._data_dtype = old_field._get_data_dtype()
-
-        if num_dimensions >= 2:
-            new_field._data_dict["X2 AXIS coords"] = old_field.ydata
-            new_field._data_dict["X2 AXIS lims"] = old_field.ylimdata
-        if num_dimensions == 3:
-            new_field._data_dict["X3 AXIS coords"] = old_field.zdata
-            new_field._data_dict["X3 AXIS lims"] = old_field.zlimdata
-    
-        new_field._plot_title = old_field._plot_title.replace(old_field.name, name)
-
-        return new_field
+    def create_derived_field(
+        cls,
+        name: str,
+        func: Callable[..., np.ndarray],
+        fields: List[Field],
+        field_type: str
+    ) -> Field:
+        return cls.create_derived_object(name, func, fields, field_type=field_type)
 
 
 class Phase(Data):
@@ -318,37 +347,14 @@ class Phase(Data):
         self._plot_title += f" (species = {self.species})"
 
     @classmethod
-    def create_phase(cls, name: str, func: Callable[..., np.ndarray], phases: List['Phase']) -> 'Phase':
-        old_phase = phases[0]
-        if any(phase.timestep != old_phase.timestep for phase in phases):
-            raise ValueError("All phases must be from the same timestep to create a new phase.")
-        
-        new_data = func(*[phase.data for phase in phases])
-        num_dimensions = len(new_data.shape)
-        
-        new_phase = cls(
-            file_path="", # No file path since this is a derived phase
-            name=name,
-            timestep=old_phase.timestep,
-            lazy=old_phase.lazy,
-            species=old_phase.species
-        )
-        new_phase._data_dict[name] = new_data
-        new_phase._data_dict["X1 AXIS coords"] = old_phase.xdata
-        new_phase._data_dict["X1 AXIS lims"] = old_phase.xlimdata
-        new_phase._data_shape = old_phase._get_data_shape()
-        new_phase._data_dtype = old_phase._get_data_dtype()
-
-        if num_dimensions >= 2:
-            new_phase._data_dict["X2 AXIS coords"] = old_phase.ydata
-            new_phase._data_dict["X2 AXIS lims"] = old_phase.ylimdata
-        if num_dimensions == 3:
-            new_phase._data_dict["X3 AXIS coords"] = old_phase.zdata
-            new_phase._data_dict["X3 AXIS lims"] = old_phase.zlimdata
-    
-        new_phase._plot_title = old_phase._plot_title.replace(old_phase.name, name)
-
-        return new_phase
+    def create_derived_phase(
+        cls,
+        name: str,
+        func: Callable[..., np.ndarray],
+        phases: List[Phase],
+        species: Union[int, str]
+    ) -> Phase:
+        return cls.create_derived_object(name, func, phases, species=species)
 
 
 class Raw(BaseProperties):

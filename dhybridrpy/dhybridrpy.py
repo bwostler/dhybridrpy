@@ -80,10 +80,10 @@ class DHybridrpy:
     Class for processing dHybridR input and output files.
 
     Args:
-        input_file (str): Path to the dHybridR input file.
-        output_folder (str): Path to the dHybridR output folder.
-        lazy (bool, optional): Enables lazy loading of data via the dask library.
-        exclude_timestep_zero (bool, optional): Excludes the zeroth timestep, if present, from the list of timesteps.
+        input_file: Path to the dHybridR input file.
+        output_folder: Path to the dHybridR output folder.
+        lazy: Enables lazy loading of data via the dask library.
+        exclude_timestep_zero: Excludes the zeroth timestep, if present, from the list of timesteps.
     """
 
     _FIELD_MAPPING = {
@@ -222,13 +222,26 @@ class DHybridrpy:
 
     def animate(
         self, 
-        data_name: str, 
+        name: str, 
         timesteps: Optional[np.ndarray] = None, 
         animation_interval: int = 200,
         colorbar_min: Optional[float] = None,
         colorbar_max: Optional[float] = None,
         **kwargs
     ) -> Tuple[Axes, FuncAnimation]:
+        """Animate a field or phase object over time.
+
+        Args:
+            name: The name of the field or phase to animate.
+            timesteps: An array of timesteps over which to animate. All timesteps are used by default.
+            animation_interval: The interval between animation frames in milliseconds.
+            colorbar_min: The minimum value for the colorbar.
+            colorbar_max: The maximum value for the colorbar.
+            **kwargs: Keywords arguments to pass to the field or phase object. E.g., "species=2" for a phase.
+
+        Returns:
+            The matplotlib axes and the FuncAnimation object representing the animation.
+        """
 
         if timesteps is None:
             timesteps = self.timesteps()
@@ -242,15 +255,15 @@ class DHybridrpy:
         fig, ax = plt.subplots(figsize=(8,6))
         plt.subplots_adjust(bottom=0.25)
 
-        if data_name in self._FIELD_NAMES:
+        if name in self._FIELD_NAMES:
             container_name = "fields"
-        elif data_name in self._PHASE_NAMES:
+        elif name in self._PHASE_NAMES:
             container_name = "phases"
         else:
-            raise ValueError(f"Name '{data_name}' is not a known field or phase.")
+            raise ValueError(f"Name '{name}' is not a known field or phase.")
 
         initial_timestep = timesteps[state["current_frame"]]
-        initial_data_obj = getattr(getattr(self.timestep(initial_timestep), container_name), data_name)(**kwargs)
+        initial_data_obj = getattr(getattr(self.timestep(initial_timestep), container_name), name)(**kwargs)
         cache = {
             state["current_frame"]: (initial_data_obj.data, initial_data_obj._plot_title)
         }
@@ -264,7 +277,7 @@ class DHybridrpy:
             if frame == state["current_frame"]:
                 continue
             ts = timesteps[frame]
-            data_obj = getattr(getattr(self.timestep(ts), container_name), data_name)(**kwargs)
+            data_obj = getattr(getattr(self.timestep(ts), container_name), name)(**kwargs)
             cache[frame] = data_obj.data, data_obj._plot_title
 
         if colorbar_min is None or colorbar_max is None:
@@ -302,7 +315,7 @@ class DHybridrpy:
         )
         slider.on_changed(lambda val: update_plot(val, ax, mesh))
 
-        ax_button = plt.axes([0.1, 0.95, 0.1, 0.04])
+        ax_button = plt.axes([0.025, 0.025, 0.1, 0.04])
         play_pause_button = Button(ax_button, "Play" if state["is_paused"] else "Pause")
 
         def update_button_text():
@@ -336,28 +349,53 @@ class DHybridrpy:
         
         return ax, ani
 
-    def create(self, data_name: str, func: Callable[..., np.ndarray], objs: List[Union[Field, Phase]]) -> Union[Field, Phase]:
-        first_obj, first_obj_type, timestep = objs[0], type(objs[0]), objs[0].timestep
+    def create(
+        self, 
+        name: str, 
+        func: Callable[..., np.ndarray], 
+        objects: List[Union[Field, Phase]]
+    ) -> Union[Field, Phase]:
+        """Create a new derived Field or Phase object called 'name' by applying 'func' to the data
+        in each object of 'objects'.
 
-        if first_obj_type is Field:
-            data_dict = self._timesteps_dict[timestep]._fields_dict[first_obj.type]
-            if any(field.name == data_name for field in data_dict.values()):
-                raise ValueError(f"Field '{data_name}' already exists at timestep {timestep}. Please rename your field.")
+        Args:
+            name: The name  of the new derived object.
+            func: Function to apply to the data in each object of 'objects'.
+            objects : A list of base objects.
 
-            self._FIELD_NAMES.add(data_name)
-            new_field = Field.create_field(data_name, func, objs)
-            self._timesteps_dict[timestep].add_field(new_field)
-            return new_field
+        Returns:
+            The new Field or Phase object.
+        """
 
-        elif first_obj_type is Phase:
-            data_dict = self._timesteps_dict[timestep]._phases_dict[first_obj.species]
-            if any(phase.name == data_name for phase in data_dict.values()):
-                raise ValueError(f"Field '{data_name}' already exists at timestep {timestep}. Please rename your field.")
+        first_obj = objects[0]
+        timestep = first_obj.timestep
 
-            self._PHASE_NAMES.add(data_name)
-            new_phase = Phase.create_phase(data_name, func, objs)
-            self._timesteps_dict[timestep].add_phase(new_phase)
-            return new_phase
-
+        if isinstance(first_obj, Field):
+            obj_dict = self._timesteps_dict[timestep]._fields_dict
+            key = first_obj.type
+            add_obj = self._timesteps_dict[timestep].add_field
+            create_derived_obj = Field.create_derived_field
+            _OBJ_NAMES = self._FIELD_NAMES
+            type_str = "Field"
+            extra_param = {"field_type": first_obj.type}
+        elif isinstance(first_obj, Phase):
+            obj_dict = self._timesteps_dict[timestep]._phases_dict
+            key = first_obj.species
+            add_obj = self._timesteps_dict[timestep].add_phase
+            create_derived_obj = Phase.create_derived_phase
+            _OBJ_NAMES = self._PHASE_NAMES
+            type_str = "Phase"
+            extra_param = {"species": first_obj.species}
         else:
-            raise TypeError(f"Object type '{obj_type} is not a Field or Phase.")
+            raise TypeError(f"Object type '{type(first_obj)}' is not a Field or Phase.")
+
+        if any(obj.name == name for obj in obj_dict[key].values()):
+            raise ValueError(
+                f"{type_str} '{name}' already exists at timestep {timestep}. Please rename your {type_str.lower()}."
+            )
+
+        _OBJ_NAMES.add(name)
+        new_obj = create_derived_obj(name, func, objects, **extra_param)
+        add_obj(new_obj)
+        return new_obj
+
