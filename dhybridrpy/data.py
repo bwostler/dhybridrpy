@@ -166,7 +166,7 @@ class Data(BaseProperties):
 
         if ax is None:
             fig, ax = plt.subplots(figsize=(8,6), dpi=dpi)
-            if num_dimensions ==  3:
+            if num_dimensions == 3:
                 plt.subplots_adjust(bottom=0.2)
 
         def is_computable(arr: Union[np.ndarray, da.Array]) -> bool:
@@ -192,9 +192,9 @@ class Data(BaseProperties):
                 X, Y, data, cmap=colormap, shading="auto", **kwargs
             )
             ax.set_title(title if title else self._plot_title)
-            xlabel, ylabel = self._LABEL_MAPPINGS[self.name]
-            ax.set_xlabel(xlabel)
-            ax.set_ylabel(ylabel)
+            xlabel_default, ylabel_default = self._LABEL_MAPPINGS[self.name]
+            ax.set_xlabel(xlabel if xlabel else xlabel_default)
+            ax.set_ylabel(ylabel if ylabel else ylabel_default)
             ax.set_xlim(xlim if xlim else xlimdata)
             ax.set_ylim(ylim if ylim else ylimdata)
             if show_colorbar:
