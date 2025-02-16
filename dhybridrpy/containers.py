@@ -1,6 +1,6 @@
 from collections import defaultdict
 from typing import Callable
-from .data import Field, Phase, Raw
+from .data import Field, Phase, Data, Raw
 from typing import Union
 
 class Container:
@@ -12,7 +12,7 @@ class Container:
         self.default_kwarg_value = default_kwarg_value
 
     def __getattr__(self, data_name: str) -> Callable:
-        def get_data(*args, **kwargs) -> Union[Field, Phase, Raw]:
+        def get_data(*args, **kwargs) -> Union[Field, Phase, Data, Raw]:
 
             # Ensure there's at most one argument
             if len(args) + len(kwargs) > 1:
@@ -40,14 +40,15 @@ class Container:
         return get_data
 
     def __repr__(self) -> str:
-        data_summary = "\n".join(
-            f"  {self.kwarg} = {key}: " + ", ".join(sorted(value.keys()))
-            for key, value in self.data_dict.items()
-        )
-        return (
-            f"{self.type}s at timestep {self.timestep}:\n"
-            f"{data_summary}"
-        )
+        lines = []
+        for key, subdict in self.data_dict.items():
+            if key is None:
+                line = "  " + ", ".join(sorted(subdict.keys()))
+            else:
+                line = f"  {self.kwarg} = {key}: " + ", ".join(sorted(subdict.keys()))
+            lines.append(line)
+        data_summary = "\n".join(lines)
+        return f"{self.type}s at timestep {self.timestep}:\n{data_summary}"
 
 
 class Timestep:
@@ -55,6 +56,7 @@ class Timestep:
         self.timestep = timestep
         self._fields_dict = {"Total": {}, "External": {}, "Self": {}}
         self._phases_dict = defaultdict(dict)
+        self._derived_dict = {None: {}}
         self._raw_dict = defaultdict(dict)
 
         # User uses these attributes to dynamically resolve a given field, phase, 
@@ -73,6 +75,13 @@ class Timestep:
             kwarg="species", 
             default_kwarg_value=1
         )
+        self.derived = Container(
+            data_dict=self._derived_dict, 
+            timestep=timestep, 
+            container_type="Derived object", 
+            kwarg=None, 
+            default_kwarg_value=None
+        )
         self.raw_files = Container(
             data_dict=self._raw_dict, 
             timestep=timestep, 
@@ -89,6 +98,9 @@ class Timestep:
     def add_phase(self, phase: Phase) -> None:
         self._phases_dict[phase.species][phase.name] = phase
 
+    def add_derived(self, derived: Data) -> None:
+        self._derived_dict[None][derived.name] = derived
+
     def add_raw(self, raw: Raw) -> None:
         self._raw_dict[raw.species][raw.name] = raw
 
@@ -96,5 +108,6 @@ class Timestep:
         return (
             f"{self.fields}\n"
             f"{self.phases}\n"
+            f"{self.derived}\n"
             f"{self.raw_files}"
         )

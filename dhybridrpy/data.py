@@ -276,8 +276,7 @@ class Data(BaseProperties):
         cls,
         name: str,
         func: Callable[..., np.ndarray],
-        base_objects: List[Data],
-        **extra_params
+        base_objects: List[Data]
     ) -> Data:
         """
         Create a new derived object from a list of base objects.
@@ -286,7 +285,6 @@ class Data(BaseProperties):
             name: Name for the new derived object.
             func: Function applied to the base object data to create the new data.
             base_objects: List of base objects to combine.
-            **extra_params: Extra parameters to pass to a subclass constructor.
 
         Returns:
             A new derived object.
@@ -303,8 +301,7 @@ class Data(BaseProperties):
             file_path="",
             name=name,
             timestep=base_object.timestep,
-            lazy=base_object.lazy,
-            **extra_params
+            lazy=base_object.lazy
         )
         new_object._data_dict[name] = new_data
         new_object._data_dict["X1 AXIS coords"] = base_object.xdata
@@ -319,7 +316,7 @@ class Data(BaseProperties):
             new_object._data_dict["X3 AXIS coords"] = base_object.zdata
             new_object._data_dict["X3 AXIS lims"] = base_object.zlimdata
 
-        new_object._plot_title = base_object._plot_title.replace(base_object.name, name)
+        new_object._plot_title = f"{name} at timestep {base_object.timestep}"
         return new_object
 
 
@@ -329,32 +326,12 @@ class Field(Data):
         self.type = field_type # The type of field, e.g., "External"
         self._plot_title += f" (type = {self.type})"
 
-    @classmethod
-    def create_derived_field(
-        cls,
-        name: str,
-        func: Callable[..., np.ndarray],
-        fields: List[Field],
-        field_type: str
-    ) -> Field:
-        return cls.create_derived_object(name, func, fields, field_type=field_type)
-
 
 class Phase(Data):
     def __init__(self, file_path: str, name: str, timestep: int, lazy: bool, species: Union[int, str]):
         super().__init__(file_path, name, timestep, lazy)
         self.species = species
         self._plot_title += f" (species = {self.species})"
-
-    @classmethod
-    def create_derived_phase(
-        cls,
-        name: str,
-        func: Callable[..., np.ndarray],
-        phases: List[Phase],
-        species: Union[int, str]
-    ) -> Phase:
-        return cls.create_derived_object(name, func, phases, species=species)
 
 
 class Raw(BaseProperties):

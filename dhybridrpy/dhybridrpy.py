@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
 from .containers import Timestep
-from .data import Field, Phase, Raw
+from .data import Field, Phase, Data, Raw
 from f90nml import Namelist
 from matplotlib.widgets import Slider, Button
 from matplotlib.collections import QuadMesh
@@ -107,6 +107,7 @@ class DHybridrpy:
         self.exclude_timestep_zero = exclude_timestep_zero
         self._FIELD_NAMES = set()
         self._PHASE_NAMES = set()
+        self._DERIVED_NAMES = set()
         self._timesteps_dict = {}
         self._sorted_timesteps = None
         self._validate_paths()
@@ -259,8 +260,10 @@ class DHybridrpy:
             container_name = "fields"
         elif name in self._PHASE_NAMES:
             container_name = "phases"
+        elif name in self._DERIVED_NAMES:
+            container_name = "derived"
         else:
-            raise ValueError(f"Name '{name}' is not a known field or phase.")
+            raise ValueError(f"Name '{name}' is not a known field, phase, or derived object.")
 
         initial_timestep = timesteps[state["current_frame"]]
         initial_data_obj = getattr(getattr(self.timestep(initial_timestep), container_name), name)(**kwargs)
@@ -354,8 +357,8 @@ class DHybridrpy:
         name: str, 
         func: Callable[..., np.ndarray], 
         objects: List[Union[Field, Phase]]
-    ) -> Union[Field, Phase]:
-        """Create a new derived Field or Phase object called 'name' by applying 'func' to the data
+    ) -> Data:
+        """Create a new derived object called 'name' by applying 'func' to the data
         in each object of 'objects'.
 
         Args:
@@ -364,38 +367,19 @@ class DHybridrpy:
             objects : A list of base objects.
 
         Returns:
-            The new Field or Phase object.
+            The new derived object.
         """
 
         first_obj = objects[0]
         timestep = first_obj.timestep
 
-        if isinstance(first_obj, Field):
-            obj_dict = self._timesteps_dict[timestep]._fields_dict
-            key = first_obj.type
-            add_obj = self._timesteps_dict[timestep].add_field
-            create_derived_obj = Field.create_derived_field
-            _OBJ_NAMES = self._FIELD_NAMES
-            type_str = "Field"
-            extra_param = {"field_type": first_obj.type}
-        elif isinstance(first_obj, Phase):
-            obj_dict = self._timesteps_dict[timestep]._phases_dict
-            key = first_obj.species
-            add_obj = self._timesteps_dict[timestep].add_phase
-            create_derived_obj = Phase.create_derived_phase
-            _OBJ_NAMES = self._PHASE_NAMES
-            type_str = "Phase"
-            extra_param = {"species": first_obj.species}
-        else:
-            raise TypeError(f"Object type '{type(first_obj)}' is not a Field or Phase.")
-
-        if any(obj.name == name for obj in obj_dict[key].values()):
+        if any(obj.name == name for obj in self._timesteps_dict[timestep]._derived_dict[None].values()):
             raise ValueError(
                 f"{type_str} '{name}' already exists at timestep {timestep}. Please rename your {type_str.lower()}."
             )
 
-        _OBJ_NAMES.add(name)
-        new_obj = create_derived_obj(name, func, objects, **extra_param)
-        add_obj(new_obj)
+        self._DERIVED_NAMES.add(name)
+        new_obj = Data.create_derived_object(name, func, objects)
+        self._timesteps_dict[timestep].add_derived(new_obj)
         return new_obj
 
