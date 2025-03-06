@@ -34,8 +34,10 @@ class Data(BaseProperties):
         "p1x1": ("$x$", "$p_x$"), "p1x2": ("$y$", "$p_x$"), "p1x3": ("$z$", "$p_x$"),
         "p2x1": ("$x$", "$p_y$"), "p2x2": ("$y$", "$p_y$"), "p2x3": ("$z$", "$p_y$"),
         "p3x1": ("$x$", "$p_z$"), "p3x2": ("$y$", "$p_z$"), "p3x3": ("$z$", "$p_z$"),
+        "x2x1": ("$x$", "$y$"), "x3x1": ("$x$", "$z$"), "x3x2": ("$y$", "$z$"),
+        "p2p1": ("$p_x$", "$p_y$"), "p3p1": ("$p_x$", "$p_z$"), "p3p2": ("$p_y$", "$p_z$"),
         "ptx1": ("$x$", "$p_{tot}$"), "ptx2": ("$y$", "$p_{tot}$"), "ptx3": ("$z$", "$p_{tot}$"),
-        "etx1": ("$x$", "$e_{tot}$"), "etx2": ("$y$", "$e_{tot}$"), "etx3": ("$z$", "$e_{tot}$")
+        "etx1": ("$x$", "$\ln(e_{tot})$"), "etx2": ("$y$", "$\ln(e_{tot})$"), "etx3": ("$z$", "$\ln(e_{tot})$")
     })
 
     def __init__(self, file_path: str, name: str, timestep: int, lazy: bool):
