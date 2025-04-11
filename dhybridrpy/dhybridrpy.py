@@ -102,10 +102,20 @@ class DHybridrpy:
         self._timesteps_dict = {}
         self._sorted_timesteps = None
         self._validate_paths()
-        self._traverse_directory()
         self.inputs = InputFileParser(input_file).input_dict
+        self._get_time_inputs()
+        self._traverse_directory()
 
-    def _validate_paths(self):
+    def _get_time_inputs(self) -> None:
+        try:
+            time_dict = self.inputs['time']
+            self.dt = time_dict['dt']
+            self.start_time = time_dict['t0']
+        except KeyError as e:
+            missing_key = e.args[0]
+            raise KeyError(f"Key '{missing_key}' not found in 'inputs' dictionary.")
+
+    def _validate_paths(self) -> None:
         if not os.path.exists(self.input_file):
             raise FileNotFoundError(f"Input file {self.input_file} does not exist.")
         if not os.path.isdir(self.output_folder):
@@ -142,7 +152,8 @@ class DHybridrpy:
         self._FIELD_NAMES.add(name)
         if timestep not in self._timesteps_dict:
             self._timesteps_dict[timestep] = Timestep(timestep)
-        field = Field(os.path.join(dirpath, filename), name, timestep, self.lazy, field_type)
+        time = timestep*self.dt + self.start_time
+        field = Field(os.path.join(dirpath, filename), name, timestep, time, self.lazy, field_type)
         self._timesteps_dict[timestep].add_field(field)
 
     def _process_phase(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
@@ -169,7 +180,8 @@ class DHybridrpy:
         species = int(self._SPECIES_PATTERN.search(species_str).group()) if species_str != "Total" else species_str
         if timestep not in self._timesteps_dict:
             self._timesteps_dict[timestep] = Timestep(timestep)
-        phase = Phase(os.path.join(dirpath, filename), name, timestep, self.lazy, species)
+        time = timestep*self.dt + self.start_time
+        phase = Phase(os.path.join(dirpath, filename), name, timestep, time, self.lazy, species)
         self._timesteps_dict[timestep].add_phase(phase)
 
     def _process_raw(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
@@ -178,7 +190,8 @@ class DHybridrpy:
         species = int(self._SPECIES_PATTERN.search(species_str).group())
         if timestep not in self._timesteps_dict:
             self._timesteps_dict[timestep] = Timestep(timestep)
-        raw = Raw(os.path.join(dirpath, filename), name, timestep, self.lazy, species)
+        time = timestep*self.dt + self.start_time
+        raw = Raw(os.path.join(dirpath, filename), name, timestep, time, self.lazy, species)
         self._timesteps_dict[timestep].add_raw(raw)
 
     def _traverse_directory(self) -> None:

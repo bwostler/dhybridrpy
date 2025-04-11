@@ -8,16 +8,17 @@ from matplotlib.widgets import Slider
 from collections import defaultdict
 
 from matplotlib.axes import Axes
-from matplotlib.collections import QuadMesh, PathCollection
+from matplotlib.collections import QuadMesh
 from matplotlib.lines import Line2D
-from typing import Tuple, Union, Optional, Literal, List, Callable
+from typing import Tuple, Union, Optional, Literal
 from dask.delayed import delayed
 
 class BaseProperties:
-    def __init__(self, file_path: str, name: str, timestep: int, lazy: bool):
+    def __init__(self, file_path: str, name: str, timestep: int, time: float, lazy: bool):
         self.file_path = file_path
         self.name = name
         self.timestep = timestep
+        self.time = time
         self.lazy = lazy
         self._data_dict = {}
 
@@ -30,19 +31,51 @@ class BaseProperties:
 
 class Data(BaseProperties):
 
-    _LABEL_MAPPINGS = defaultdict(lambda: ("$x$", "$y$"), {
-        "p1x1": ("$x$", "$p_x$"), "p1x2": ("$y$", "$p_x$"), "p1x3": ("$z$", "$p_x$"),
-        "p2x1": ("$x$", "$p_y$"), "p2x2": ("$y$", "$p_y$"), "p2x3": ("$z$", "$p_y$"),
-        "p3x1": ("$x$", "$p_z$"), "p3x2": ("$y$", "$p_z$"), "p3x3": ("$z$", "$p_z$"),
-        "x2x1": ("$x$", "$y$"), "x3x1": ("$x$", "$z$"), "x3x2": ("$y$", "$z$"),
-        "p2p1": ("$p_x$", "$p_y$"), "p3p1": ("$p_x$", "$p_z$"), "p3p2": ("$p_y$", "$p_z$"),
-        "ptx1": ("$x$", "$p_{tot}$"), "ptx2": ("$y$", "$p_{tot}$"), "ptx3": ("$z$", "$p_{tot}$"),
-        "etx1": ("$x$", "$\ln(e_{tot})$"), "etx2": ("$y$", "$\ln(e_{tot})$"), "etx3": ("$z$", "$\ln(e_{tot})$")
-    })
+    _X = "$x / d_i$"
+    _Y = "$y / d_i$"
+    _Z = "$z / d_i$"
+    _PX = "$p_x / (m_i v_A)$"
+    _PY = "$p_y / (m_i v_A)$"
+    _PZ = "$p_z / (m_i v_A)$"
+    _PTOT = "$p_{tot} / (m_i v_A)$"
+    _ETOT = r"$\ln\left(\frac{e_{tot}}{m_i v_A^2}\right)$"
 
-    def __init__(self, file_path: str, name: str, timestep: int, lazy: bool):
-        super().__init__(file_path, name, timestep, lazy)
-        self._plot_title = f"{name} at timestep {timestep}"
+    _LABEL_MAPPINGS = defaultdict(
+        lambda: (Data._X, Data._Y),
+        {
+            "p1x1": (_X, _PX),
+            "p1x2": (_Y, _PX),
+            "p1x3": (_Z, _PX),
+
+            "p2x1": (_X, _PY),
+            "p2x2": (_Y, _PY),
+            "p2x3": (_Z, _PY),
+
+            "p3x1": (_X, _PZ),
+            "p3x2": (_Y, _PZ),
+            "p3x3": (_Z, _PZ),
+
+            "x2x1": (_X, _Y),
+            "x3x1": (_X, _Z),
+            "x3x2": (_Y, _Z),
+
+            "p2p1": (_PX, _PY),
+            "p3p1": (_PX, _PZ),
+            "p3p2": (_PY, _PZ),
+
+            "ptx1": (_X, _PTOT),
+            "ptx2": (_Y, _PTOT),
+            "ptx3": (_Z, _PTOT),
+
+            "etx1": (_X, _ETOT),
+            "etx2": (_Y, _ETOT),
+            "etx3": (_Z, _ETOT),
+        }
+    )
+
+    def __init__(self, file_path: str, name: str, timestep: int, time: float, lazy: bool):
+        super().__init__(file_path, name, timestep, time, lazy)
+        self._plot_title = rf"{name} at time {time} $\omega_{{ci}}^{{-1}}$"
         self._data_shape = None
         self._data_dtype = None
 
@@ -275,22 +308,22 @@ class Data(BaseProperties):
 
 
 class Field(Data):
-    def __init__(self, file_path: str, name: str, timestep: int, lazy: bool, field_type: str):
-        super().__init__(file_path, name, timestep, lazy)
+    def __init__(self, file_path: str, name: str, timestep: int, time: float, lazy: bool, field_type: str):
+        super().__init__(file_path, name, timestep, time, lazy)
         self.type = field_type # The type of field, e.g., "External"
         self._plot_title += f" (type = {self.type})"
 
 
 class Phase(Data):
-    def __init__(self, file_path: str, name: str, timestep: int, lazy: bool, species: Union[int, str]):
-        super().__init__(file_path, name, timestep, lazy)
+    def __init__(self, file_path: str, name: str, timestep: int, time: float, lazy: bool, species: Union[int, str]):
+        super().__init__(file_path, name, timestep, time, lazy)
         self.species = species
         self._plot_title += f" (species = {self.species})"
 
 
 class Raw(BaseProperties):
-    def __init__(self, file_path: str, name: str, timestep: int, lazy: bool, species: int):
-        super().__init__(file_path, name, timestep, lazy)
+    def __init__(self, file_path: str, name: str, timestep: int, time: float, lazy: bool, species: int):
+        super().__init__(file_path, name, timestep, time, lazy)
         self.species = species
 
     @property
