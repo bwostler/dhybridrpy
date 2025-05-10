@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import h5py
 import numpy as np
 import dask.array as da
@@ -73,9 +71,9 @@ class Data(BaseProperties):
         }
     )
 
-    def __init__(self, file_path: str, name: str, timestep: int, time: float, lazy: bool):
+    def __init__(self, file_path: str, name: str, timestep: int, time: float, time_ndecimals: int, lazy: bool):
         super().__init__(file_path, name, timestep, time, lazy)
-        self._plot_title = rf"{name} at time {time} $\omega_{{ci}}^{{-1}}$"
+        self._plot_title = rf"{name} at time {round(time, time_ndecimals)} $\omega_{{ci}}^{{-1}}$"
         self._data_shape = None
         self._data_dtype = None
 
@@ -308,15 +306,15 @@ class Data(BaseProperties):
 
 
 class Field(Data):
-    def __init__(self, file_path: str, name: str, timestep: int, time: float, lazy: bool, field_type: str):
-        super().__init__(file_path, name, timestep, time, lazy)
+    def __init__(self, file_path: str, name: str, timestep: int, time: float, time_ndecimals: int, lazy: bool, field_type: str):
+        super().__init__(file_path, name, timestep, time, time_ndecimals, lazy)
         self.type = field_type # The type of field, e.g., "External"
         self._plot_title += f" (type = {self.type})"
 
 
 class Phase(Data):
-    def __init__(self, file_path: str, name: str, timestep: int, time: float, lazy: bool, species: Union[int, str]):
-        super().__init__(file_path, name, timestep, time, lazy)
+    def __init__(self, file_path: str, name: str, timestep: int, time: float, time_ndecimals: int, lazy: bool, species: Union[int, str]):
+        super().__init__(file_path, name, timestep, time, time_ndecimals, lazy)
         self.species = species
         self._plot_title += f" (species = {self.species})"
 

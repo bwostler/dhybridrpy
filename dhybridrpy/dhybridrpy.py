@@ -4,6 +4,7 @@ import logging
 import numpy as np
 import f90nml
 import io
+import math
 
 from .containers import Timestep
 from .data import Field, Phase, Raw
@@ -153,7 +154,8 @@ class DHybridrpy:
         if timestep not in self._timesteps_dict:
             self._timesteps_dict[timestep] = Timestep(timestep)
         time = timestep*self.dt + self.start_time
-        field = Field(os.path.join(dirpath, filename), name, timestep, time, self.lazy, field_type)
+        time_ndecimals = max(0, math.ceil(-math.log10(self.dt)) + 1)
+        field = Field(os.path.join(dirpath, filename), name, timestep, time, time_ndecimals, self.lazy, field_type)
         self._timesteps_dict[timestep].add_field(field)
 
     def _process_phase(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
@@ -181,7 +183,8 @@ class DHybridrpy:
         if timestep not in self._timesteps_dict:
             self._timesteps_dict[timestep] = Timestep(timestep)
         time = timestep*self.dt + self.start_time
-        phase = Phase(os.path.join(dirpath, filename), name, timestep, time, self.lazy, species)
+        time_ndecimals = max(0, math.ceil(-math.log10(self.dt)) + 1)
+        phase = Phase(os.path.join(dirpath, filename), name, timestep, time, time_ndecimals, self.lazy, species)
         self._timesteps_dict[timestep].add_phase(phase)
 
     def _process_raw(self, dirpath: str, filename: str, timestep: int, folder_components: list) -> None:
