@@ -2,6 +2,7 @@ import h5py
 import numpy as np
 import dask.array as da
 import matplotlib.pyplot as plt
+import operator
 from matplotlib.widgets import Slider
 from collections import defaultdict
 
@@ -12,8 +13,8 @@ from typing import Tuple, Union, Optional, Literal
 from dask.delayed import delayed
 
 class BaseProperties:
-    def __init__(self, file_path: str, name: str, timestep: int, time: float, lazy: bool):
-        self.file_path = file_path
+    def __init__(self, file_path: Optional[str], name: str, timestep: int, time: float, lazy: bool):
+        self.file_path = file_path # None for derived objects
         self.name = name
         self.timestep = timestep
         self.time = time
@@ -71,15 +72,27 @@ class Data(BaseProperties):
         }
     )
 
+    # For derived object plot titles
+    _BINOP_SYMBOL = {
+        "add": "+",
+        "sub": "-",
+        "mul": "*",
+        "truediv":"/", 
+        "pow":"^"
+    }
+
     def __init__(self, file_path: str, name: str, timestep: int, time: float, time_ndecimals: int, lazy: bool):
         super().__init__(file_path, name, timestep, time, lazy)
-        self._plot_title = rf"{name} at time {round(time, time_ndecimals)} $\omega_{{ci}}^{{-1}}$"
+        self._time_ndecimals = time_ndecimals
+        self._plot_title = rf"{name} at time {round(time, self._time_ndecimals)} $\omega_{{ci}}^{{-1}}$"
         self._data_shape = None
         self._data_dtype = None
 
     def _get_coordinate_limits(self, axis_name: str) -> np.ndarray:
         key = f"{axis_name} lims"
         if key not in self._data_dict:
+            if not self.file_path:
+                raise RuntimeError(f"No file to load axis limits for {axis_name}")
             with h5py.File(self.file_path, "r") as file:
                 self._data_dict[key] = file["AXIS"][axis_name][:]
         return self._data_dict[key]
@@ -93,38 +106,41 @@ class Data(BaseProperties):
             self._data_dict[key] = delta*grid + (delta/2) + axis_limits[0]
         return self._data_dict[key]
     
-    def _get_data_shape(self) -> tuple:
+    def _get_data_shape(self) -> Tuple[int, ...]:
         """Retrieve the shape of the data without loading it."""
         if self._data_shape is None:
-            with h5py.File(self.file_path, "r") as file:
-                # Reverse the data shape to be consistent with transpose in data @property
-                self._data_shape = file["DATA"].shape[::-1]
+            if self.file_path:
+                with h5py.File(self.file_path, "r") as file:
+                    # Reverse the data shape to be consistent with transpose in data @property
+                    self._data_shape = file["DATA"].shape[::-1]
         return self._data_shape
 
     def _get_data_dtype(self) -> np.dtype:
         """Retrieve the type of the data without loading it."""
         if self._data_dtype is None:
-            with h5py.File(self.file_path, "r") as file:
-                self._data_dtype = file["DATA"].dtype
+            if self.file_path:
+                with h5py.File(self.file_path, "r") as file:
+                    self._data_dtype = file["DATA"].dtype
         return self._data_dtype
 
     @property
     def data(self) -> Union[np.ndarray, da.Array]:
         """Retrieve the data at each grid point."""
         if self.name not in self._data_dict:
-
-            def data_helper() -> np.ndarray:
-                with h5py.File(self.file_path, "r") as file:
-                    return file["DATA"][:].T
-
+            def loader():
+                if not self.file_path:
+                    raise RuntimeError("No file to load DATA for in-memory object")
+                with h5py.File(self.file_path, "r") as f:
+                    return f["DATA"][:].T
             if self.lazy:
-                delayed_helper = delayed(data_helper)()
+                delayed_obj = delayed(loader)()
                 self._data_dict[self.name] = da.from_delayed(
-                    delayed_helper, shape=self._get_data_shape(), dtype=self._get_data_dtype()
+                    delayed_obj,
+                    shape=self._get_data_shape(),
+                    dtype=self._get_data_dtype()
                 )
             else:
-                self._data_dict[self.name] = data_helper()
-
+                self._data_dict[self.name] = loader()
         return self._data_dict[self.name]
 
     @property
@@ -156,6 +172,48 @@ class Data(BaseProperties):
     def zlimdata(self) -> Union[np.ndarray, da.Array]:
         """Retrieve the z (i.e. X3) grid axis limits."""
         return self._get_coordinate_limits("X3 AXIS")
+
+    def _apply_operation(self, other, op):
+        # Guard – must combine compatible timesteps/types
+        if isinstance(other, Data):
+            if self.timestep != other.timestep:
+                raise ValueError("Timesteps differ between operands.")
+            result = op(self.data, other.data)
+            other_name = other.name
+        else:
+            result = op(self.data, other)
+            other_name = str(other)
+        symbol = self._BINOP_SYMBOL.get(op.__name__, op.__name__)
+        return self._create_new_instance(result, symbol, other_name, other)
+
+    def _create_new_instance(self, result_array, op_symbol: str, other_name: str, other_obj=None):
+        file_path = self.file_path or (other_obj.file_path if isinstance(other_obj, Data) else None)
+        
+        if op_symbol == "^":
+            new_name = f"({self.name}){op_symbol}{other_name}"
+        else:
+            new_name = f"{self.name}{op_symbol}{other_name}"
+
+        inst = self.__class__(
+            file_path,
+            new_name, 
+            self.timestep, 
+            self.time,    
+            self._time_ndecimals, 
+            self.lazy
+        )
+        inst._data_dict = dict(self._data_dict)
+        inst._data_dict[new_name] = result_array
+        inst._data_shape = tuple(result_array.shape)[::-1]
+        inst._data_dtype = getattr(result_array, "dtype", None)
+        inst._plot_title = self._plot_title.replace(self.name, new_name)
+        return inst
+
+    def __add__(self, other): return self._apply_operation(other, operator.add)
+    def __sub__(self, other): return self._apply_operation(other, operator.sub)
+    def __mul__(self, other): return self._apply_operation(other, operator.mul)
+    def __truediv__(self, other): return self._apply_operation(other, operator.truediv)
+    def __pow__(self, other): return self._apply_operation(other, operator.pow)
 
     def plot(self,
         *,
@@ -306,17 +364,69 @@ class Data(BaseProperties):
 
 
 class Field(Data):
-    def __init__(self, file_path: str, name: str, timestep: int, time: float, time_ndecimals: int, lazy: bool, field_type: str):
+    def __init__(self, file_path: Optional[str], name: str, timestep: int, time: float, time_ndecimals: int, lazy: bool, field_type: str):
         super().__init__(file_path, name, timestep, time, time_ndecimals, lazy)
         self.type = field_type # The type of field, e.g., "External"
         self._plot_title += f" (type = {self.type})"
 
+    def _create_new_instance(self, result_array, op_symbol, other_name, other_obj=None):
+        if isinstance(other_obj, Field) and self.type != other_obj.type:
+            raise ValueError("Field types do not match.")
+
+        if op_symbol == "^":
+            new_name = f"({self.name}){op_symbol}{other_name}"
+        else:
+            new_name = f"{self.name}{op_symbol}{other_name}"
+
+        file_path = self.file_path or (other_obj.file_path if isinstance(other_obj, Data) else None)
+        inst = Field(
+            file_path,
+            new_name,
+            self.timestep,
+            self.time,
+            self._time_ndecimals,
+            self.lazy,
+            self.type
+        )
+        inst._data_dict = dict(self._data_dict)
+        inst._data_dict[new_name] = result_array
+        inst._data_shape = tuple(result_array.shape)[::-1]
+        inst._data_dtype = getattr(result_array, "dtype", None)
+        inst._plot_title = self._plot_title.replace(self.name, new_name)
+        return inst
+
 
 class Phase(Data):
-    def __init__(self, file_path: str, name: str, timestep: int, time: float, time_ndecimals: int, lazy: bool, species: Union[int, str]):
+    def __init__(self, file_path: Optional[str], name: str, timestep: int, time: float, time_ndecimals: int, lazy: bool, species: Union[int, str]):
         super().__init__(file_path, name, timestep, time, time_ndecimals, lazy)
         self.species = species
         self._plot_title += f" (species = {self.species})"
+
+    def _create_new_instance(self, result_array, op_symbol, other_name, other_obj=None):
+        if isinstance(other_obj, Phase) and self.species != other_obj.species:
+            raise ValueError("Phase species do not match.")
+
+        if op_symbol == "^":
+            new_name = f"({self.name}){op_symbol}{other_name}"
+        else:
+            new_name = f"{self.name}{op_symbol}{other_name}"
+
+        file_path = self.file_path or (other_obj.file_path if isinstance(other_obj, Data) else None)
+        inst = Phase(
+            file_path,
+            new_name,
+            self.timestep,
+            self.time,
+            self._time_ndecimals,
+            self.lazy,
+            self.species
+        )
+        inst._data_dict = dict(self._data_dict)
+        inst._data_dict[new_name] = result_array
+        inst._data_shape = tuple(result_array.shape)[::-1]
+        inst._data_dtype = getattr(result_array, "dtype", None)
+        inst._plot_title = self._plot_title.replace(self.name, new_name)
+        return inst
 
 
 class Raw(BaseProperties):
