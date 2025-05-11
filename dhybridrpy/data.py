@@ -13,8 +13,8 @@ from typing import Tuple, Union, Optional, Literal
 from dask.delayed import delayed
 
 class BaseProperties:
-    def __init__(self, file_path: Optional[str], name: str, timestep: int, time: float, lazy: bool):
-        self.file_path = file_path # None for derived objects
+    def __init__(self, file_path: str, name: str, timestep: int, time: float, lazy: bool):
+        self.file_path = file_path
         self.name = name
         self.timestep = timestep
         self.time = time
@@ -91,8 +91,6 @@ class Data(BaseProperties):
     def _get_coordinate_limits(self, axis_name: str) -> np.ndarray:
         key = f"{axis_name} lims"
         if key not in self._data_dict:
-            if not self.file_path:
-                raise RuntimeError(f"No file to load axis limits for {axis_name}")
             with h5py.File(self.file_path, "r") as file:
                 self._data_dict[key] = file["AXIS"][axis_name][:]
         return self._data_dict[key]
@@ -109,18 +107,16 @@ class Data(BaseProperties):
     def _get_data_shape(self) -> Tuple[int, ...]:
         """Retrieve the shape of the data without loading it."""
         if self._data_shape is None:
-            if self.file_path:
-                with h5py.File(self.file_path, "r") as file:
-                    # Reverse the data shape to be consistent with transpose in data @property
-                    self._data_shape = file["DATA"].shape[::-1]
+            with h5py.File(self.file_path, "r") as file:
+                # Reverse the data shape to be consistent with transpose in data @property
+                self._data_shape = file["DATA"].shape[::-1]
         return self._data_shape
 
     def _get_data_dtype(self) -> np.dtype:
         """Retrieve the type of the data without loading it."""
         if self._data_dtype is None:
-            if self.file_path:
-                with h5py.File(self.file_path, "r") as file:
-                    self._data_dtype = file["DATA"].dtype
+            with h5py.File(self.file_path, "r") as file:
+                self._data_dtype = file["DATA"].dtype
         return self._data_dtype
 
     @property
@@ -128,8 +124,6 @@ class Data(BaseProperties):
         """Retrieve the data at each grid point."""
         if self.name not in self._data_dict:
             def loader():
-                if not self.file_path:
-                    raise RuntimeError("No file to load DATA for in-memory object")
                 with h5py.File(self.file_path, "r") as f:
                     return f["DATA"][:].T
             if self.lazy:
@@ -187,16 +181,16 @@ class Data(BaseProperties):
             )
 
     def _apply_operation(self, other, op):
-        # Guard – must combine compatible timesteps/types
+        """Apply a binary operation to self and another Data object or scalar."""
+
         if isinstance(other, Data):
             self._check_compatability(other)
-            if self.timestep != other.timestep:
-                raise ValueError("Timesteps differ between operands.")
             result = op(self.data, other.data)
             other_name = other.name
         else:
             result = op(self.data, other)
             other_name = str(other)
+
         symbol = self._BINOP_SYMBOL.get(op.__name__, op.__name__)
         return self._create_new_instance(result, symbol, other_name, other)
 
@@ -221,18 +215,16 @@ class Data(BaseProperties):
         other_name: str,
         other_obj = None,
     ):
+        """Create a new Data instance with the result of the operation."""
         
-        if isinstance(other_obj, Data):
-            self._check_compatability(other_obj)
-
-        file_path = self.file_path or (other_obj.file_path if isinstance(other_obj, Data) else None)
+        file_path = other_obj.file_path if isinstance(other_obj, Data) else self.file_path
 
         if op_symbol:
             if op_symbol == "^":
                 new_name = f"({self.name}){op_symbol}{other_name}"
             else:
                 new_name = f"{self.name}{op_symbol}{other_name}"
-        else: # name supplied by ufunc wrapper
+        else: # name is supplied by ufunc wrapper
             new_name = other_name
 
         inst = self.__class__(
@@ -270,8 +262,9 @@ class Data(BaseProperties):
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         """Allow NumPy ufuncs to be applied to Data objects"""
+
         if method != "__call__":
-            return NotImplemented  # only handle element‑wise calls
+            return NotImplemented  # only allow element‑wise operations
 
         # Extract raw arrays and gather Data operands for naming / compat checks
         raw_inputs, data_operands = [], []
@@ -289,6 +282,10 @@ class Data(BaseProperties):
 
         # Execute the ufunc on the underlying arrays
         result_array = ufunc(*raw_inputs, **kwargs)
+
+        # No Data operands, so return the non-Data result
+        if not data_operands:
+            return result_array
 
         # Build a descriptive name: e.g. "sin(By)"
         names = ",".join(obj.name if isinstance(obj, Data) else str(obj) for obj in inputs)
@@ -343,6 +340,8 @@ class Data(BaseProperties):
             fig, ax = plt.subplots(figsize=(8,6), dpi=dpi)
             if num_dimensions == 3:
                 plt.subplots_adjust(bottom=0.2)
+        else:
+            fig = ax.figure
 
         def is_computable(arr: Union[np.ndarray, da.Array]) -> bool:
             return self.lazy and isinstance(arr, da.Array)
@@ -423,7 +422,7 @@ class Data(BaseProperties):
                 cbar = plt.colorbar(mesh, ax=ax)
                 cbar.set_label(colorbar_label if colorbar_label else f"{self.name}")
 
-            ax_slider = plt.axes([0.2, 0.05, 0.6, 0.03])
+            ax_slider = fig.add_axes([0.2, 0.05, 0.6, 0.03])
             data_shape = data.shape[{"x": 0, "y": 1, "z": 2}[slice_axis]]
             slider = Slider(ax_slider, f"{slice_axis.capitalize()} axis slice", 0, data_shape-1, valinit=initial_slice, valstep=1)
 
