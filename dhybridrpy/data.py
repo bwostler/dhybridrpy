@@ -173,9 +173,23 @@ class Data(BaseProperties):
         """Retrieve the z (i.e. X3) grid axis limits."""
         return self._get_coordinate_limits("X3 AXIS")
 
+    def _check_compatability(self, other) -> None:
+        """Raise if 'self' and 'other' cannot be operated on together."""
+
+        if self._get_data_shape() != other._get_data_shape():
+            raise ValueError(
+                f"Incompatible grid shapes: {self._get_data_shape()} vs "
+                f"{other._get_data_shape()}"
+            )
+        if self.timestep != other.timestep:
+            raise ValueError(
+                f"Timesteps differ: {self.timestep} vs {other.timestep}"
+            )
+
     def _apply_operation(self, other, op):
         # Guard – must combine compatible timesteps/types
         if isinstance(other, Data):
+            self._check_compatability(other)
             if self.timestep != other.timestep:
                 raise ValueError("Timesteps differ between operands.")
             result = op(self.data, other.data)
@@ -186,13 +200,40 @@ class Data(BaseProperties):
         symbol = self._BINOP_SYMBOL.get(op.__name__, op.__name__)
         return self._create_new_instance(result, symbol, other_name, other)
 
-    def _create_new_instance(self, result_array, op_symbol: str, other_name: str, other_obj=None):
-        file_path = self.file_path or (other_obj.file_path if isinstance(other_obj, Data) else None)
+
+    def _extra_init_args(self) -> tuple:
+        """Positional args that the subclass's __init__ expects"""
+        return ()
+
+    @staticmethod
+    def _trim_subtype(title: str) -> str:
+        """Remove the trailing ' (type = ...)' or ' (species = ...)' for derived objects."""
+        for token in (" (type =", " (species ="):
+            index = title.find(token)
+            if index != -1:
+                return title[:index].rstrip()
+        return title
+
+    def _create_new_instance(
+        self,
+        result_array,
+        op_symbol: str,
+        other_name: str,
+        other_obj = None,
+    ):
         
-        if op_symbol == "^":
-            new_name = f"({self.name}){op_symbol}{other_name}"
-        else:
-            new_name = f"{self.name}{op_symbol}{other_name}"
+        if isinstance(other_obj, Data):
+            self._check_compatability(other_obj)
+
+        file_path = self.file_path or (other_obj.file_path if isinstance(other_obj, Data) else None)
+
+        if op_symbol:
+            if op_symbol == "^":
+                new_name = f"({self.name}){op_symbol}{other_name}"
+            else:
+                new_name = f"{self.name}{op_symbol}{other_name}"
+        else: # name supplied by ufunc wrapper
+            new_name = other_name
 
         inst = self.__class__(
             file_path,
@@ -200,13 +241,17 @@ class Data(BaseProperties):
             self.timestep, 
             self.time,    
             self._time_ndecimals, 
-            self.lazy
+            self.lazy,
+            *self._extra_init_args()
         )
-        inst._data_dict = dict(self._data_dict)
+        inst._data_dict = {k: v for k, v in self._data_dict.items() if "AXIS" in k}
         inst._data_dict[new_name] = result_array
-        inst._data_shape = tuple(result_array.shape)[::-1]
+        inst._data_shape = tuple(result_array.shape)
         inst._data_dtype = getattr(result_array, "dtype", None)
+
         inst._plot_title = self._plot_title.replace(self.name, new_name)
+        inst._plot_title = Data._trim_subtype(inst._plot_title)
+
         return inst
 
     def __add__(self, other): return self._apply_operation(other, operator.add)
@@ -214,6 +259,45 @@ class Data(BaseProperties):
     def __mul__(self, other): return self._apply_operation(other, operator.mul)
     def __truediv__(self, other): return self._apply_operation(other, operator.truediv)
     def __pow__(self, other): return self._apply_operation(other, operator.pow)
+    def __neg__(self): return self * (-1)
+    def __radd__(self, other): return self.__add__(other)
+    def __rmul__(self, other): return self.__mul__(other)
+    def __rsub__(self, other): return (-self).__add__(other)
+    def __rtruediv__(self, other): return self.__pow__(-1) * other
+
+     # Ensure that mixed Data and NumPy operations produce a Data object
+    __array_priority__ = 20
+
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        """Allow NumPy ufuncs to be applied to Data objects"""
+        if method != "__call__":
+            return NotImplemented  # only handle element‑wise calls
+
+        # Extract raw arrays and gather Data operands for naming / compat checks
+        raw_inputs, data_operands = [], []
+        for input in inputs:
+            if isinstance(input, Data):
+                data_operands.append(input)
+                raw_inputs.append(input.data)
+            else:
+                raw_inputs.append(input)
+
+        if data_operands:
+            ref = data_operands[0]
+            for other in data_operands[1:]:
+                ref._check_compatability(other)
+
+        # Execute the ufunc on the underlying arrays
+        result_array = ufunc(*raw_inputs, **kwargs)
+
+        # Build a descriptive name: e.g. "sin(By)"
+        names = ",".join(obj.name if isinstance(obj, Data) else str(obj) for obj in inputs)
+        new_name = f"{ufunc.__name__}({names})"
+
+        # Choose a parent to copy metadata from (take self if it's a Data object)
+        parent = next((obj for obj in data_operands if isinstance(obj, Data)), None)
+
+        return parent._create_new_instance(result_array, "", new_name, parent)
 
     def plot(self,
         *,
@@ -364,69 +448,33 @@ class Data(BaseProperties):
 
 
 class Field(Data):
-    def __init__(self, file_path: Optional[str], name: str, timestep: int, time: float, time_ndecimals: int, lazy: bool, field_type: str):
+    def __init__(self, file_path: str, name: str, timestep: int, time: float, time_ndecimals: int, lazy: bool, field_type: str):
         super().__init__(file_path, name, timestep, time, time_ndecimals, lazy)
         self.type = field_type # The type of field, e.g., "External"
         self._plot_title += f" (type = {self.type})"
 
-    def _create_new_instance(self, result_array, op_symbol, other_name, other_obj=None):
-        if isinstance(other_obj, Field) and self.type != other_obj.type:
+    def _check_compatability(self, other):
+        super()._check_compatability(other)
+        if isinstance(other, Field) and self.type != other.type:
             raise ValueError("Field types do not match.")
 
-        if op_symbol == "^":
-            new_name = f"({self.name}){op_symbol}{other_name}"
-        else:
-            new_name = f"{self.name}{op_symbol}{other_name}"
-
-        file_path = self.file_path or (other_obj.file_path if isinstance(other_obj, Data) else None)
-        inst = Field(
-            file_path,
-            new_name,
-            self.timestep,
-            self.time,
-            self._time_ndecimals,
-            self.lazy,
-            self.type
-        )
-        inst._data_dict = dict(self._data_dict)
-        inst._data_dict[new_name] = result_array
-        inst._data_shape = tuple(result_array.shape)[::-1]
-        inst._data_dtype = getattr(result_array, "dtype", None)
-        inst._plot_title = self._plot_title.replace(self.name, new_name)
-        return inst
+    def _extra_init_args(self):
+        return (self.type,)
 
 
 class Phase(Data):
-    def __init__(self, file_path: Optional[str], name: str, timestep: int, time: float, time_ndecimals: int, lazy: bool, species: Union[int, str]):
+    def __init__(self, file_path: str, name: str, timestep: int, time: float, time_ndecimals: int, lazy: bool, species: Union[int, str]):
         super().__init__(file_path, name, timestep, time, time_ndecimals, lazy)
         self.species = species
         self._plot_title += f" (species = {self.species})"
 
-    def _create_new_instance(self, result_array, op_symbol, other_name, other_obj=None):
-        if isinstance(other_obj, Phase) and self.species != other_obj.species:
+    def _check_compatability(self, other):
+        super()._check_compatability(other)
+        if isinstance(other, Phase) and self.species != other.species:
             raise ValueError("Phase species do not match.")
 
-        if op_symbol == "^":
-            new_name = f"({self.name}){op_symbol}{other_name}"
-        else:
-            new_name = f"{self.name}{op_symbol}{other_name}"
-
-        file_path = self.file_path or (other_obj.file_path if isinstance(other_obj, Data) else None)
-        inst = Phase(
-            file_path,
-            new_name,
-            self.timestep,
-            self.time,
-            self._time_ndecimals,
-            self.lazy,
-            self.species
-        )
-        inst._data_dict = dict(self._data_dict)
-        inst._data_dict[new_name] = result_array
-        inst._data_shape = tuple(result_array.shape)[::-1]
-        inst._data_dtype = getattr(result_array, "dtype", None)
-        inst._plot_title = self._plot_title.replace(self.name, new_name)
-        return inst
+    def _extra_init_args(self):
+        return (self.species,)
 
 
 class Raw(BaseProperties):
