@@ -1,6 +1,6 @@
 [project]
 name = "dhybridrpy"
-version = "v1.4"
+version = "v1.5"
 description = "A Python package to easily read input + output data from dHybridR."
 readme = "README.md"
 requires-python = ">=3.8"
@@ -15,6 +15,9 @@ dependencies = [
     "dask"
 ]
 license = {file = "LICENSE.txt"}
+
+[project.urls]
+Homepage = "https://github.com/bwostler/dhybridrpy"
 
 [build-system]
 requires = ["setuptools>=42", "wheel"]
